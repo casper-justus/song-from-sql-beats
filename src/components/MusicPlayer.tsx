@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, FileText } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -21,16 +20,23 @@ const MusicPlayer = () => {
   const [lyrics, setLyrics] = useState('');
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const { data: songs = [], isLoading } = useQuery({
+  const { data: songs = [], isLoading, error } = useQuery({
     queryKey: ['songs'],
     queryFn: async () => {
+      console.log('Fetching songs from database...');
       const { data, error } = await supabase
         .from('songs')
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error('Error fetching songs:', error);
+        throw error;
+      }
+      
+      console.log('Songs fetched:', data?.length || 0, 'songs');
+      console.log('Songs data:', data);
+      return data || [];
     },
   });
 
@@ -162,10 +168,30 @@ const MusicPlayer = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-white text-xl">
+          <p>Error loading music: {error.message}</p>
+          <p className="text-sm mt-2">Check the console for more details</p>
+        </div>
+      </div>
+    );
+  }
+
   if (songs.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-white text-xl">No songs found in your library</div>
+        <div className="text-white text-center">
+          <h2 className="text-2xl font-bold mb-4">No Songs Found</h2>
+          <p className="text-lg mb-2">Your music library is empty.</p>
+          <p className="text-sm text-gray-300">Add some songs to your Supabase database to get started!</p>
+          <div className="mt-4 text-xs text-gray-400">
+            <p>Database connection: ✓ Connected</p>
+            <p>Query status: ✓ Successful</p>
+            <p>Songs count: {songs.length}</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -300,7 +326,7 @@ const MusicPlayer = () => {
 
           {/* Song List */}
           <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-6">
-            <h3 className="text-xl font-bold text-white mb-4">Your Library</h3>
+            <h3 className="text-xl font-bold text-white mb-4">Your Library ({songs.length} songs)</h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {songs.map((song) => (
                 <div
