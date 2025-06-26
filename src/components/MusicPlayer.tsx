@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, FileText } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
@@ -16,6 +17,8 @@ const MusicPlayer = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState([75]);
+  const [showLyrics, setShowLyrics] = useState(false);
+  const [lyrics, setLyrics] = useState('');
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const { data: songs = [], isLoading } = useQuery({
@@ -65,15 +68,48 @@ const MusicPlayer = () => {
     }
   }, [volume]);
 
-  const togglePlay = () => {
+  // Fetch lyrics when current song changes
+  useEffect(() => {
+    const fetchLyrics = async () => {
+      if (currentSong?.lyrics_url) {
+        try {
+          const response = await fetch(currentSong.lyrics_url);
+          if (response.ok) {
+            const lyricsText = await response.text();
+            setLyrics(lyricsText);
+          } else {
+            setLyrics('Lyrics not available');
+          }
+        } catch (error) {
+          console.error('Error fetching lyrics:', error);
+          setLyrics('Error loading lyrics');
+        }
+      } else {
+        setLyrics('No lyrics available for this song');
+      }
+    };
+
+    fetchLyrics();
+  }, [currentSong]);
+
+  const togglePlay = async () => {
     if (!audioRef.current || !currentSong) return;
 
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
+    try {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        // Ensure the audio source is set correctly
+        if (audioRef.current.src !== currentSong.file_url) {
+          audioRef.current.src = currentSong.file_url;
+        }
+        await audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setIsPlaying(false);
     }
-    setIsPlaying(!isPlaying);
   };
 
   const playNext = () => {
@@ -106,6 +142,16 @@ const MusicPlayer = () => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handleSongSelect = (song: Song) => {
+    setCurrentSong(song);
+    setIsPlaying(false);
+    // Reset audio element when changing songs
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
   };
 
   if (isLoading) {
@@ -149,6 +195,9 @@ const MusicPlayer = () => {
               <p className="text-lg text-gray-300 mb-1">{currentSong?.artist}</p>
               {currentSong?.album && (
                 <p className="text-gray-400">{currentSong.album}</p>
+              )}
+              {currentSong?.year && (
+                <p className="text-gray-500 text-sm">{currentSong.year}</p>
               )}
             </div>
 
@@ -199,6 +248,27 @@ const MusicPlayer = () => {
               >
                 <SkipForward className="h-6 w-6" />
               </Button>
+
+              {/* Lyrics Button */}
+              <Dialog open={showLyrics} onOpenChange={setShowLyrics}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-white hover:bg-white/20"
+                  >
+                    <FileText className="h-6 w-6" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-96 overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{currentSong?.title} - Lyrics</DialogTitle>
+                  </DialogHeader>
+                  <div className="whitespace-pre-wrap text-sm">
+                    {lyrics}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Volume Control */}
@@ -220,6 +290,10 @@ const MusicPlayer = () => {
                 ref={audioRef}
                 src={currentSong.file_url}
                 preload="metadata"
+                onError={(e) => {
+                  console.error('Audio error:', e);
+                  setIsPlaying(false);
+                }}
               />
             )}
           </Card>
@@ -231,10 +305,7 @@ const MusicPlayer = () => {
               {songs.map((song) => (
                 <div
                   key={song.id}
-                  onClick={() => {
-                    setCurrentSong(song);
-                    setIsPlaying(false);
-                  }}
+                  onClick={() => handleSongSelect(song)}
                   className={`p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/10 ${
                     currentSong?.id === song.id ? 'bg-white/20' : ''
                   }`}
@@ -258,9 +329,14 @@ const MusicPlayer = () => {
                         <p className="text-gray-500 text-xs truncate">{song.album}</p>
                       )}
                     </div>
-                    {song.year && (
-                      <span className="text-gray-400 text-sm">{song.year}</span>
-                    )}
+                    <div className="text-right">
+                      {song.year && (
+                        <span className="text-gray-400 text-sm">{song.year}</span>
+                      )}
+                      {song.genre && (
+                        <p className="text-gray-500 text-xs">{song.genre}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
