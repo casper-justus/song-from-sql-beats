@@ -1,5 +1,6 @@
 # wrangler.toml
-name = "your-music-pages-project" # Your project name
+# wrangler.toml
+name = 'aws' # Your project name
 main = "public" # This should point to your static assets root
 
 [pages]
