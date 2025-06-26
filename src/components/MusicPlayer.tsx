@@ -18,12 +18,49 @@ const MusicPlayer = () => {
   const [volume, setVolume] = useState([75]);
   const [showLyrics, setShowLyrics] = useState(false);
   const [lyrics, setLyrics] = useState('');
+  const [user, setUser] = useState<any>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Current session:', session);
+      if (session?.user) {
+        setUser(session.user);
+        console.log('User authenticated:', session.user.id);
+      } else {
+        console.log('No authenticated user found');
+        // Sign in anonymously or with the specific user ID for testing
+        const { data, error } = await supabase.auth.signInAnonymously();
+        if (error) {
+          console.error('Error signing in anonymously:', error);
+        } else {
+          console.log('Signed in anonymously:', data);
+          setUser(data.user);
+        }
+      }
+    };
+    
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, session);
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const { data: songs = [], isLoading, error } = useQuery({
-    queryKey: ['songs'],
+    queryKey: ['songs', user?.id],
     queryFn: async () => {
-      console.log('Fetching songs from database...');
+      if (!user) {
+        console.log('No user authenticated, skipping song fetch');
+        return [];
+      }
+      
+      console.log('Fetching songs from database for user:', user.id);
       const { data, error } = await supabase
         .from('songs')
         .select('*')
@@ -31,6 +68,7 @@ const MusicPlayer = () => {
       
       if (error) {
         console.error('Error fetching songs:', error);
+        console.error('Error details:', error.details, error.hint, error.code);
         throw error;
       }
       
@@ -38,6 +76,7 @@ const MusicPlayer = () => {
       console.log('Songs data:', data);
       return data || [];
     },
+    enabled: !!user, // Only run query when user is authenticated
   });
 
   useEffect(() => {
@@ -160,6 +199,17 @@ const MusicPlayer = () => {
     }
   };
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-white text-xl">
+          <p>Setting up authentication...</p>
+          <p className="text-sm mt-2">Please wait while we authenticate you</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -174,6 +224,7 @@ const MusicPlayer = () => {
         <div className="text-white text-xl">
           <p>Error loading music: {error.message}</p>
           <p className="text-sm mt-2">Check the console for more details</p>
+          <p className="text-sm mt-1">User ID: {user?.id}</p>
         </div>
       </div>
     );
@@ -190,6 +241,8 @@ const MusicPlayer = () => {
             <p>Database connection: ✓ Connected</p>
             <p>Query status: ✓ Successful</p>
             <p>Songs count: {songs.length}</p>
+            <p>User ID: {user?.id}</p>
+            <p>Expected User ID: 85f340cb-f30f-4b03-84f4-36699f0edcc3</p>
           </div>
         </div>
       </div>
