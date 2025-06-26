@@ -98,6 +98,13 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background: linear-gradient(to right, #8A2BE2, #4682B4); /* Purple (BlueViolet) to Blue (SteelBlue) */
+    min-height: 100vh; /* Ensure gradient covers full viewport height */
+  }
+
+  /* Ensure background variable doesn't override the gradient in dark mode */
+  .dark body {
+    background: linear-gradient(to right, #4B0082, #1E90FF); /* Darker Purple (Indigo) to DodgerBlue for dark mode */
   }
 }

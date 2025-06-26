@@ -1,49 +1,76 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom'; // Use NavLink for active styling
 import MusicPlayer from "@/components/MusicPlayer";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LockKeyhole } from 'lucide-react'; // Example Icon
+import { LockKeyhole, Home, Search, Library } from 'lucide-react'; // Added icons
 
 const Index = () => {
   const { session, user, signOut, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center text-white">
         <p className="text-lg">Loading user session...</p>
         {/* You could add a spinner here */}
       </div>
     );
   }
 
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 ${
+      isActive ? 'bg-gray-700 text-white' : 'text-gray-300'
+    }`;
+
+
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen p-4">
+    // The global gradient is on body, so this page doesn't need specific background unless overriding.
+    // Ensure text colors are appropriate for the global gradient.
+    <div className="flex flex-col items-center justify-start min-h-screen p-4 text-white">
       {/* Navigation Bar */}
-      <div className="w-full max-w-4xl mb-8">
-        <nav className="flex justify-between items-center py-4 px-6 bg-gray-100 dark:bg-gray-800 rounded-md shadow">
-          <h1 className="text-xl font-semibold">My Awesome App</h1>
-          <div className="flex items-center space-x-4">
+      <header className="w-full max-w-5xl mb-8 sticky top-0 z-40 bg-black/30 backdrop-blur-md rounded-b-lg">
+        <nav className="flex justify-between items-center py-3 px-4 sm:px-6">
+          <Link to="/" className="text-2xl font-bold text-white">My Awesome App</Link>
+
+          {/* Centered Navigation Links for larger screens */}
+          <div className="hidden md:flex items-center space-x-2">
+            <NavLink to="/" className={navLinkClass} end>
+              <Home size={18} />
+              <span>Home</span>
+            </NavLink>
+            <NavLink to="/search" className={navLinkClass}>
+              <Search size={18} />
+              <span>Search</span>
+            </NavLink>
+            {session && (
+              <NavLink to="/library" className={navLinkClass}>
+                <Library size={18} />
+                <span>My Library</span>
+              </NavLink>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-3">
             {session && user ? (
               <>
-                <span className="text-sm hidden md:inline">Welcome, {user.email}</span>
-                <Button variant="outline" onClick={signOut}>Sign Out</Button>
+                <span className="text-sm text-gray-300 hidden lg:inline">Welcome, {user.email?.split('@')[0]}</span>
+                <Button variant="outline" onClick={signOut} className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white">Sign Out</Button>
               </>
             ) : (
               <>
-                <Button asChild variant="outline">
-                  <Link to="/login">Login</Link>
-                </Button>
-                <Button asChild>
+                <Button asChild variant="ghost" className="text-gray-300 hover:bg-gray-700 hover:text-white">
                   <Link to="/signup">Sign Up</Link>
+                </Button>
+                <Button asChild className="bg-white text-black hover:bg-gray-200">
+                  <Link to="/login">Log In</Link>
                 </Button>
               </>
             )}
           </div>
         </nav>
-      </div>
+      </header>
 
-      {/* Main Content Area */}
+      {/* Main Content Area - Now Index only shows MusicPlayer if logged in, or Access Restricted */}
       {session && user ? (
         // Authenticated View
         <MusicPlayer />

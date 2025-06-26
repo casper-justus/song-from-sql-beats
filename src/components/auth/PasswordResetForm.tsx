@@ -5,6 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 
+// Example: Spotify-like green color
+const spotifyGreen = "#1DB954";
+
 export function PasswordResetForm() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -32,28 +35,34 @@ export function PasswordResetForm() {
       setMessage('If an account exists for this email, a password reset link has been sent. Please check your inbox.');
       toast({
         title: "Password Reset Email Sent",
-        description: "If an account exists, you'll receive a reset link shortly.",
+        description: "If an account exists for this email, you'll receive a reset link shortly.",
       });
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <p className="text-red-500">{error}</p>}
-      {message && <p className="text-green-500">{message}</p>}
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {error && <p className="text-red-400 text-sm text-center mb-3">{error}</p>}
+      {message && <p className="text-spotifyGreen text-sm text-center mb-3">{message}</p>}
       <div>
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="reset-email" className="text-sm font-medium text-gray-300 sr-only">Email address</Label>
         <Input
-          id="email"
+          id="reset-email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          placeholder="you@example.com"
+          placeholder="Email address"
+          className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-spotifyGreen focus:border-spotifyGreen"
         />
       </div>
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? 'Sending...' : 'Send Password Reset Email'}
+      <Button
+        type="submit"
+        className="w-full text-black font-bold py-3 text-base hover:scale-105 transform transition-transform duration-200"
+        style={{ backgroundColor: spotifyGreen }}
+        disabled={loading}
+      >
+        {loading ? 'Sending Link...' : 'Get Reset Link'}
       </Button>
     </form>
   );

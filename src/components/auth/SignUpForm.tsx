@@ -6,12 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 
+// Example: Spotify-like green color
+const spotifyGreen = "#1DB954";
+
 export function SignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null); // For success messages
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -32,71 +35,72 @@ export function SignUpForm() {
         variant: "destructive",
       });
     } else if (data.user && data.user.identities && data.user.identities.length === 0) {
-      // This case might indicate the user already exists but is unconfirmed or another issue.
-      // Supabase v2 might return a user object with an empty identities array if email confirmation is pending
-      // or if the user exists but is unconfirmed.
-      // For a new user requiring confirmation, data.session is null and data.user is non-null.
-      setMessage("User already registered. Please check your email to confirm your account or try logging in.");
+      setMessage("This email is already registered. If it's yours, please check your inbox to confirm your account, or try logging in.");
       toast({
         title: "Registration Notice",
-        description: "User already registered. Please check your email to confirm your account or try logging in.",
+        description: "This email is already registered. Please check your email to confirm your account or try logging in.",
       });
     } else if (data.user && data.session === null) {
-      // This is the typical case for a new sign-up when email confirmation is required.
       setMessage('Sign up successful! Please check your email to verify your account.');
       toast({
-        title: "Sign Up Successful",
+        title: "Sign Up Successful!",
         description: "Please check your email to verify your account.",
       });
-      // Optionally, redirect or clear form
-      // navigate('/login'); // Or stay on page to show message
+      // Don't navigate immediately, let user see the message.
     } else if (data.session) {
-      // This case implies auto-confirmation is on, or the user was already confirmed and signed in.
       setMessage('Sign up successful and logged in!');
       toast({
-        title: "Sign Up Successful",
+        title: "Sign Up Successful!",
         description: "You are now logged in.",
       });
       navigate('/');
     } else {
-        // Fallback for unexpected response
-        setError("An unexpected error occurred during sign up. Please try again.");
-        toast({
-            title: "Sign Up Failed",
-            description: "An unexpected error occurred.",
-            variant: "destructive",
-        });
+      setError("An unexpected error occurred during sign up. Please try again.");
+      toast({
+        title: "Sign Up Failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <p className="text-red-500">{error}</p>}
-      {message && <p className="text-green-500">{message}</p>}
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {error && <p className="text-red-400 text-sm text-center mb-3">{error}</p>}
+      {message && <p className="text-spotifyGreen text-sm text-center mb-3">{message}</p>}
       <div>
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="signup-email" className="text-sm font-medium text-gray-300 sr-only">What's your email?</Label>
         <Input
-          id="email"
+          id="signup-email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          placeholder="you@example.com"
+          placeholder="What's your email?"
+          className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-spotifyGreen focus:border-spotifyGreen"
         />
       </div>
       <div>
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="signup-password" className="text-sm font-medium text-gray-300 sr-only">Create a password</Label>
         <Input
-          id="password"
+          id="signup-password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          placeholder="•••••••• (min 6 characters)"
+          placeholder="Create a password"
+          className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-spotifyGreen focus:border-spotifyGreen"
+          // Supabase default min password length is 6
         />
       </div>
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? 'Signing up...' : 'Sign Up'}
+      {/* Could add a "Confirm Password" field here for better UX */}
+      <Button
+        type="submit"
+        className="w-full text-black font-bold py-3 text-base hover:scale-105 transform transition-transform duration-200"
+        style={{ backgroundColor: spotifyGreen }}
+        disabled={loading}
+      >
+        {loading ? 'Creating account...' : 'Sign Up'}
       </Button>
     </form>
   );
