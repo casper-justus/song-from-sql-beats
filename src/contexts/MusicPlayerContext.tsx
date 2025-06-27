@@ -9,6 +9,27 @@ const SUPABASE_URL_FOR_FUNCTIONS = "https://dqckopgetuodqhgnhhxw.supabase.co";
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
 
+// NEW HELPER FUNCTION TO ADD HERE
+/**
+ * Extracts the R2 object key from a full Cloudflare R2 public URL.
+ * Assumes the URL format: https://[account_id].r2.cloudflarestorage.com/[bucket_name]/[object_key]
+ *
+ * @param {string} fullR2Url The complete R2 public URL.
+ * @returns {string|null} The R2 object key (e.g., "music/music/song.mp3") or null if invalid.
+ */
+function extractR2KeyFromUrl(fullR2Url: string): string | null {
+  try {
+    const url = new URL(fullR2Url);
+    // The pathname will be something like "/[bucket_name]/[object_key]"
+    // We want to remove the leading slash.
+    let path = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
+    return decodeURIComponent(path); // Decode any URL-encoded characters
+  } catch (error) {
+    console.error("Failed to parse R2 URL for key extraction:", fullR2Url, error);
+    return null;
+  }
+}
+
 interface MusicPlayerContextType {
   songs: Song[];
   currentSong: Song | null;
@@ -52,12 +73,14 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [lyrics, setLyrics] = useState('');
   const [showLyricsDialog, setShowLyricsDialog] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  // Cache keys will now be the R2 object keys
   const [resolvedUrlCache, setResolvedUrlCache] = useState<Record<string, string>>({});
   const [isResolvingUrl, setIsResolvingUrl] = useState(false);
   const queryClient = useQueryClient();
 
   // Helper function to resolve media URL via Edge Function
   const resolveMediaUrl = useCallback(async (fileKey: string): Promise<string | null> => {
+    // fileKey passed here is ALREADY the extracted R2 object key
     if (!fileKey) return null;
     if (resolvedUrlCache[fileKey]) return resolvedUrlCache[fileKey];
     if (!session?.access_token) {
@@ -156,11 +179,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (error) console.error('Error unliking song:', error);
       else setLikedSongIds(prev => { const next = new Set(prev); next.delete(songId); return next; });
     } else {
-      const { error } = await supabase.from('user_liked_songs').insert({ 
-        user_id: user.id, 
-        song_id: songId, 
-        video_id: video_id, 
-        liked_at: new Date().toISOString() 
+      const { error } = await supabase.from('user_liked_songs').insert({
+        user_id: user.id,
+        song_id: songId,
+        video_id: video_id,
+        liked_at: new Date().toISOString()
       });
       if (error) console.error('Error liking song:', error);
       else setLikedSongIds(prev => new Set(prev).add(songId));
@@ -242,7 +265,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', (e) => console.error("Audio Element Error (removed):", e));
     };
-  }, [currentSong]);
+  }, [currentSong, playNext]); // Added playNext to dependency array
 
   // Volume effect
   useEffect(() => {
@@ -259,11 +282,20 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         return;
       }
 
-      const lyricsFileKey = currentSong.lyrics_url;
+      // --- CRITICAL CHANGE FOR LYRICS URL ---
+      const rawLyricsUrl = currentSong.lyrics_url;
+      const lyricsFileKey = extractR2KeyFromUrl(rawLyricsUrl); // Extract the R2 object key
+
+      if (!lyricsFileKey) {
+        console.error("Error: Invalid lyrics URL format for extraction:", rawLyricsUrl);
+        setLyrics('Error loading lyrics: Invalid URL format.');
+        return;
+      }
+
       setLyrics('Loading lyrics...');
 
       try {
-        const resolvedLyricsUrl = await resolveMediaUrl(lyricsFileKey);
+        const resolvedLyricsUrl = await resolveMediaUrl(lyricsFileKey); // Pass the extracted key
         if (resolvedLyricsUrl) {
           const response = await fetch(resolvedLyricsUrl);
           if (!response.ok) {
@@ -311,11 +343,21 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      const currentFileKey = currentSong.file_url;
+      // --- CRITICAL CHANGE FOR AUDIO URL ---
+      const rawFileUrl = currentSong.file_url;
+      const currentFileKey = extractR2KeyFromUrl(rawFileUrl); // Extract the R2 object key
+
+      if (!currentFileKey) {
+        console.error("Error: Invalid audio file URL format for extraction:", rawFileUrl);
+        setIsPlaying(false);
+        return;
+      }
+
+      // Use the extracted R2 object key for cache lookup
       let resolvedSrc = resolvedUrlCache[currentFileKey];
 
       if (!resolvedSrc) {
-        resolvedSrc = await resolveMediaUrl(currentFileKey);
+        resolvedSrc = await resolveMediaUrl(currentFileKey); // Pass the extracted key
       }
 
       if (resolvedSrc) {
@@ -368,7 +410,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       isPlaying,
       currentTime,
       duration,
-      volume: volume * 100,
+      volume: volume * 100, // Return volume as 0-100 for UI
       isLoadingSongs,
       lyrics,
       showLyricsDialog,
