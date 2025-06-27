@@ -1,0 +1,19 @@
+# wrangler.toml
+name = "signer" # Your project name
+main = "public" # This should point to your static assets root
+
+[pages]
+pages_build_output_dir = "./public"
+
+# This binds your R2 bucket to your Pages Function.
+# The 'binding' name (R2_MUSIC_BUCKET) will be used in your Pages Function code (e.g., context.env.R2_MUSIC_BUCKET)
+[[r2_buckets]]
+binding = "R2_MUSIC_BUCKET"
+bucket_name = "music" # The actual name of your R2 bucket
+
+# This section defines environment variables for your Pages Functions
+# The SUPABASE_PROJECT_ID will be accessed via `context.env.SUPABASE_PROJECT_ID`
+[vars]
+# SUPABASE_PROJECT_ID will be set as an environment variable in the Cloudflare Dashboard
+# It's included here for clarity, but its value is managed via Cloudflare UI/CLI.
+SUPABASE_PROJECT_ID = "dqckopgetuodqhgnhhxw" # Example: part of your Supabase URL
