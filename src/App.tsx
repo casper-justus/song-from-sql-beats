@@ -11,10 +11,11 @@ import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignUpPage";
 import PasswordResetPage from "./pages/PasswordResetPage";
 import UpdatePasswordPage from "./pages/UpdatePasswordPage";
-import LibraryPage from "./pages/LibraryPage"; // Import LibraryPage
-import SearchPage from "./pages/SearchPage";   // Import SearchPage
-import ProtectedRoute from "./components/auth/ProtectedRoute"; // Import ProtectedRoute
+import LibraryPage from "./pages/LibraryPage";
+import SearchPage from "./pages/SearchPage";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { BottomNavbar } from "./components/BottomNavbar";
+import { BottomNavigation } from "./components/BottomNavigation";
 
 const queryClient = new QueryClient();
 
@@ -26,7 +27,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <div className="pb-24"> {/* Main content padding for BottomNavbar */}
+            <div className="pb-32"> {/* Increased padding for both navbars */}
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<LoginPage />} />
@@ -37,20 +38,18 @@ const App = () => (
                 {/* Protected Routes */}
                 <Route element={<ProtectedRoute />}>
                   <Route path="/library" element={<LibraryPage />} />
-                  {/* Add other protected routes here: /playlists, /profile etc. */}
                 </Route>
 
                 {/* Public Routes */}
                 <Route path="/search" element={<SearchPage />} />
-                {/* Example placeholder routes for terms & privacy, can be simple components or static pages */}
                 <Route path="/terms" element={<div>Terms and Conditions Page (Placeholder)</div>} />
                 <Route path="/privacy" element={<div>Privacy Policy Page (Placeholder)</div>} />
 
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </div>
             <BottomNavbar />
+            <BottomNavigation />
           </BrowserRouter>
         </TooltipProvider>
       </MusicPlayerProvider>

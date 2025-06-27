@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailPassword } from '@/lib/auth';
@@ -5,9 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-
-// Example: Spotify-like green color
-const spotifyGreen = "#1DB954";
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -32,45 +30,52 @@ export function LoginForm() {
       });
     } else {
       toast({
-        title: "Login Successful",
-        description: "Redirecting...",
-        // Consider a less intrusive toast for dark theme success
+        title: "Welcome back!",
+        description: "Successfully logged in",
       });
-      navigate('/'); // Redirect to home page on successful login
+      navigate('/');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      {error && <p className="text-red-400 text-sm text-center mb-3">{error}</p>}
-      <div>
-        <Label htmlFor="email" className="text-sm font-medium text-gray-300 sr-only">Email address</Label>
-        <Input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          placeholder="Email address"
-          className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-spotifyGreen focus:border-spotifyGreen"
-        />
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-full px-4 py-3">
+          <p className="text-red-400 text-sm text-center">{error}</p>
+        </div>
+      )}
+      
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="email" className="text-sm font-semibold text-white mb-2 block">Email or username</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="Email or username"
+            className="h-12 bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 rounded-full px-6 text-base focus:ring-green-500 focus:border-green-500 backdrop-blur-sm"
+          />
+        </div>
+        
+        <div>
+          <Label htmlFor="password" className="text-sm font-semibold text-white mb-2 block">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="Password"
+            className="h-12 bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 rounded-full px-6 text-base focus:ring-green-500 focus:border-green-500 backdrop-blur-sm"
+          />
+        </div>
       </div>
-      <div>
-        <Label htmlFor="password" className="text-sm font-medium text-gray-300 sr-only">Password</Label>
-        <Input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          placeholder="Password"
-          className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-spotifyGreen focus:border-spotifyGreen"
-        />
-      </div>
+      
       <Button
         type="submit"
-        className="w-full text-black font-bold py-3 text-base hover:scale-105 transform transition-transform duration-200"
-        style={{ backgroundColor: spotifyGreen }}
+        className="w-full h-12 bg-green-500 hover:bg-green-400 text-black font-bold text-base rounded-full transition-all hover:scale-105 transform shadow-lg"
         disabled={loading}
       >
         {loading ? 'Logging in...' : 'Log In'}
