@@ -4,15 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wrangler pages dev --compatibility-date 2024-05-29",
+    "start-vite": "vite",
+    "dev": "wrangler pages dev --compatibility-date 2024-05-29 --proxy 5173 -- vite --port 5173",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "wrangler pages deploy",
-    "start": "npm run dev",
-    "vite-dev-only": "vite"
-  },
+    "deploy": "wrangler pages deploy ./dist", 
+    "deploy-preview": "wrangler pages deploy ./dist --branch preview",
+    "start": "npm run dev"
+      },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "^1.2.0",
