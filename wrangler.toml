@@ -1,5 +1,5 @@
 # wrangler.toml
-name = "signer" # Your project name
+name = "aws" # Your project name
 main = "public" # This should point to your static assets root
 
 [pages]
