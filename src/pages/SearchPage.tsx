@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,10 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { cn } from '@/lib/utils';
-import ResolvedCoverImage from '@/components/ResolvedCoverImage'; // Import ResolvedCoverImage
+import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 
 type Song = Tables<'songs'>;
-const spotifyGreen = "#1DB954"; // Centralize this if used in more places
+const spotifyGreen = "#1DB954";
 
 export default function SearchPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,15 +31,12 @@ export default function SearchPage() {
     setIsLoading(true);
     setSearchPerformed(true);
     try {
-      // Performing OR search across multiple fields.
-      // For more advanced search, consider using Supabase functions or full-text search.
-      const query = searchTerm.trim().split(' ').map(term => `${term}:*`).join(' & '); // Prepare for FTS if enabled
-
-      // Using ilike for broader matching. For FTS, you'd use .textSearch('fts_column', query)
+      // Enhanced search across multiple fields including album, year, video_id
       const { data, error } = await supabase
         .from('songs')
         .select('*')
-        .or(`title.ilike.%${searchTerm}%,artist.ilike.%${searchTerm}%,album.ilike.%${searchTerm}%`);
+        .or(`title.ilike.%${searchTerm}%,artist.ilike.%${searchTerm}%,album.ilike.%${searchTerm}%,video_id.ilike.%${searchTerm}%,year::text.ilike.%${searchTerm}%`)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setSearchResults(data || []);
@@ -72,11 +70,11 @@ export default function SearchPage() {
       <div className="max-w-xl mx-auto mb-12">
         <form
           onSubmit={handleSearch}
-          className="flex items-center space-x-3 p-1 bg-white rounded-full shadow-md" // White search bar like Spotify
+          className="flex items-center space-x-3 p-1 bg-white rounded-full shadow-md"
         >
           <Input
             type="search"
-            placeholder="What do you want to listen to?"
+            placeholder="Search songs, artists, albums, or years..."
             className="flex-grow bg-transparent border-none text-black placeholder-gray-500 focus:ring-0 h-12 text-base"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -119,17 +117,23 @@ export default function SearchPage() {
                     />
                   </div>
                   <div className="flex-grow min-w-0">
-                    <p className={`font-medium truncate ${currentSong?.id === song.id ? 'text-spotifyGreen' : 'text-white'}`}>
+                    <p className={`font-medium truncate ${currentSong?.id === song.id ? 'text-yellow-400' : 'text-white'}`}>
                       {song.title || "Unknown Title"}
                     </p>
                     <p className="text-sm text-gray-400 truncate">{song.artist || "Unknown Artist"}</p>
+                    {song.album && (
+                      <p className="text-xs text-gray-500 truncate">{song.album} {song.year && `• ${song.year}`}</p>
+                    )}
+                    {song.video_id && (
+                      <p className="text-xs text-gray-600 truncate">ID: {song.video_id}</p>
+                    )}
                   </div>
                   <div className="flex items-center space-x-3 ml-auto">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleToggleLike(song)}
-                      className={cn("text-gray-400 hover:text-white w-8 h-8", likedSongIds.has(song.id) ? "text-spotifyGreen" : "")}
+                      className={cn("text-gray-400 hover:text-white w-8 h-8", likedSongIds.has(song.id) ? "text-yellow-400" : "")}
                     >
                       <Heart className={cn("w-5 h-5", likedSongIds.has(song.id) ? "fill-current" : "")} />
                     </Button>
@@ -146,18 +150,17 @@ export default function SearchPage() {
               ))}
             </div>
           </>
-        ) : searchPerformed ? ( // Search was performed but term was empty
+        ) : searchPerformed ? (
           <div className="p-6 bg-gray-800 rounded-lg shadow-md text-center">
              <p className="text-gray-400">Enter a search term to find music.</p>
           </div>
         ) : (
            <div className="p-6 bg-gray-800 rounded-lg shadow-md min-h-[200px] flex items-center justify-center">
-             <p className="text-gray-300">Start typing to search for songs, artists, or albums.</p>
+             <p className="text-gray-300">Start typing to search for songs, artists, albums, years, or video IDs.</p>
            </div>
         )}
       </section>
 
-      {/* Placeholder for Browse Categories (Optional - kept from before) */}
       {!searchPerformed && searchResults.length === 0 && (
         <section className="mt-12">
           <h3 className="text-xl font-semibold mb-4 text-center">Or Browse Categories</h3>

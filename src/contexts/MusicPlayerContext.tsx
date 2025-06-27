@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useRef, useEffect, ReactNode, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -91,11 +90,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [session, resolvedUrlCache]);
 
-  // Fetch songs
+  // Fetch songs - now accessible to all authenticated users
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
-    queryKey: ['songs', user?.id],
+    queryKey: ['songs'],
     queryFn: async () => {
-      if (!user) return [];
       const { data, error } = await supabase.from('songs').select('*').order('created_at', { ascending: false });
       if (error) {
         console.error("Error fetching songs:", error);
