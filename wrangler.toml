@@ -1,9 +1,9 @@
 # wrangler.toml
-name = "aws" # Your project name
-
+name = "song-from-sql-beats" # You might want to match your project name better
+# main = "public" # Remove or comment this line as it's not applicable for Pages static builds
 
 [pages]
-pages_build_output_dir = "./dist"
+pages_build_output_dir = "./dist" # This is the crucial change!
 
 # This binds your R2 bucket to your Pages Function.
 # The 'binding' name (R2_MUSIC_BUCKET) will be used in your Pages Function code (e.g., context.env.R2_MUSIC_BUCKET)
