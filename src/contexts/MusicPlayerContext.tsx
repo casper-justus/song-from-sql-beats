@@ -9,7 +9,6 @@ const SUPABASE_URL_FOR_FUNCTIONS = "https://dqckopgetuodqhgnhhxw.supabase.co";
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
 
-// NEW HELPER FUNCTION TO ADD HERE
 /**
  * Extracts the R2 object key from a full Cloudflare R2 public URL.
  * Assumes the URL format: https://[account_id].r2.cloudflarestorage.com/[bucket_name]/[object_key]
@@ -20,10 +19,8 @@ type Playlist = Tables<'playlists'>;
 function extractR2KeyFromUrl(fullR2Url: string): string | null {
   try {
     const url = new URL(fullR2Url);
-    // The pathname will be something like "/[bucket_name]/[object_key]"
-    // We want to remove the leading slash.
     let path = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
-    return decodeURIComponent(path); // Decode any URL-encoded characters
+    return decodeURIComponent(path);
   } catch (error) {
     console.error("Failed to parse R2 URL for key extraction:", fullR2Url, error);
     return null;
@@ -73,14 +70,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [lyrics, setLyrics] = useState('');
   const [showLyricsDialog, setShowLyricsDialog] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
-  // Cache keys will now be the R2 object keys
   const [resolvedUrlCache, setResolvedUrlCache] = useState<Record<string, string>>({});
   const [isResolvingUrl, setIsResolvingUrl] = useState(false);
   const queryClient = useQueryClient();
 
-  // Helper function to resolve media URL via Edge Function
   const resolveMediaUrl = useCallback(async (fileKey: string): Promise<string | null> => {
-    // fileKey passed here is ALREADY the extracted R2 object key
     if (!fileKey) return null;
     if (resolvedUrlCache[fileKey]) return resolvedUrlCache[fileKey];
     if (!session?.access_token) {
@@ -113,7 +107,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [session, resolvedUrlCache]);
 
-  // Fetch songs - now accessible to all authenticated users
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
     queryKey: ['songs'],
     queryFn: async () => {
@@ -127,7 +120,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     enabled: !!user,
   });
 
-  // Fetch playlists
   const { data: fetchedPlaylists = [] } = useQuery({
     queryKey: ['playlists', user?.id],
     queryFn: async () => {
@@ -151,7 +143,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     setPlaylists(fetchedPlaylists);
   }, [fetchedPlaylists]);
 
-  // Fetch liked songs
   useEffect(() => {
     const fetchLiked = async () => {
       if (!user) {
@@ -170,7 +161,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const isCurrentSongLiked = currentSong ? likedSongIds.has(currentSong.id) : false;
 
-  // Toggle like song
   const toggleLikeSong = async (songId: string, video_id: string) => {
     if (!user || !songId) return;
     const alreadyLiked = likedSongIds.has(songId);
@@ -190,7 +180,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
-  // Playlist functions
   const createPlaylist = async (name: string, description?: string) => {
     if (!user) return;
     const { error } = await supabase.from('playlists').insert({
@@ -241,31 +230,34 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     const audio = audioRef.current;
     if (!audio) return;
 
+    // Define named event handler functions
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration);
     const handleEnded = () => {
       setIsPlaying(false);
-      playNext();
+      playNext(); // playNext is a useCallback, so it's stable.
     };
     const handleCanPlay = () => setDuration(audio.duration);
+    const handleError = (e: Event) => {
+      console.error("Audio Element Error:", e);
+      setIsPlaying(false);
+    };
 
     audio.addEventListener('timeupdate', updateTime);
     audio.addEventListener('loadedmetadata', updateDuration);
     audio.addEventListener('canplay', handleCanPlay);
     audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('error', (e) => {
-      console.error("Audio Element Error:", e);
-      setIsPlaying(false);
-    });
+    audio.addEventListener('error', handleError);
 
+    // Clean up event listeners using the named functions
     return () => {
       audio.removeEventListener('timeupdate', updateTime);
       audio.removeEventListener('loadedmetadata', updateDuration);
       audio.removeEventListener('canplay', handleCanPlay);
       audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('error', (e) => console.error("Audio Element Error (removed):", e));
+      audio.removeEventListener('error', handleError);
     };
-  }, [currentSong, playNext]); // Added playNext to dependency array
+  }, [currentSong, playNext]); // Added playNext to dependency array as handleEnded uses it.
 
   // Volume effect
   useEffect(() => {
@@ -410,7 +402,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       isPlaying,
       currentTime,
       duration,
-      volume: volume * 100, // Return volume as 0-100 for UI
+      volume: volume * 100,
       isLoadingSongs,
       lyrics,
       showLyricsDialog,
