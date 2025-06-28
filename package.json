@@ -10,11 +10,12 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "wrangler pages deploy ./dist", 
+    "deploy": "wrangler pages deploy ./dist",
     "deploy-preview": "wrangler pages deploy ./dist --branch preview",
     "start": "npm run dev"
-      },
+  },
   "dependencies": {
+    "@auth0/auth0-react": "^2.3.0",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
