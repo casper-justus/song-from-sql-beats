@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 
 type Song = Tables<'songs'>;
-const spotifyGreen = "#1DB954";
 
 export default function SearchPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,6 +21,7 @@ export default function SearchPage() {
 
   const handleSearch = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
+    
     if (!searchTerm.trim()) {
       setSearchResults([]);
       setSearchPerformed(true);
@@ -31,14 +31,22 @@ export default function SearchPage() {
     setIsLoading(true);
     setSearchPerformed(true);
     try {
-      // Enhanced search across multiple fields including album, year, video_id
+      console.log('Searching for:', searchTerm);
+      
+      // Enhanced search across multiple fields
       const { data, error } = await supabase
         .from('songs')
         .select('*')
         .or(`title.ilike.%${searchTerm}%,artist.ilike.%${searchTerm}%,album.ilike.%${searchTerm}%,video_id.ilike.%${searchTerm}%,year::text.ilike.%${searchTerm}%`)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      console.log('Search results:', data, 'Error:', error);
+
+      if (error) {
+        console.error('Search error:', error);
+        throw error;
+      }
+      
       setSearchResults(data || []);
     } catch (error) {
       console.error('Error searching songs:', error);
@@ -49,9 +57,13 @@ export default function SearchPage() {
   };
 
   const handlePlaySong = (song: Song) => {
-    if (currentSong?.id === song.id && isPlaying) togglePlay();
-    else if (currentSong?.id === song.id && !isPlaying) togglePlay();
-    else selectSong(song);
+    if (currentSong?.id === song.id && isPlaying) {
+      togglePlay();
+    } else if (currentSong?.id === song.id && !isPlaying) {
+      togglePlay();
+    } else {
+      selectSong(song);
+    }
   };
 
   const handleToggleLike = (song: Song) => {
@@ -59,7 +71,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white pb-32">
       <header className="mb-8 text-center">
         <h1 className="text-4xl font-bold">Search</h1>
         <p className="text-lg text-gray-400 mt-2">
@@ -94,7 +106,7 @@ export default function SearchPage() {
       <section>
         {isLoading ? (
           <p className="text-center text-gray-300">Searching...</p>
-        ) : searchPerformed && searchResults.length === 0 ? (
+        ) : searchPerformed && searchResults.length === 0 && searchTerm.trim() ? (
           <div className="p-6 bg-gray-800 rounded-lg shadow-md text-center">
             <h2 className="text-xl font-semibold mb-2">No Results Found for "{searchTerm}"</h2>
             <p className="text-gray-400">Try searching for something else, or check your spelling.</p>
@@ -150,20 +162,20 @@ export default function SearchPage() {
               ))}
             </div>
           </>
-        ) : searchPerformed ? (
-          <div className="p-6 bg-gray-800 rounded-lg shadow-md text-center">
-             <p className="text-gray-400">Enter a search term to find music.</p>
+        ) : !searchPerformed ? (
+          <div className="p-6 bg-gray-800 rounded-lg shadow-md min-h-[200px] flex items-center justify-center">
+            <p className="text-gray-300">Start typing to search for songs, artists, albums, years, or video IDs.</p>
           </div>
         ) : (
-           <div className="p-6 bg-gray-800 rounded-lg shadow-md min-h-[200px] flex items-center justify-center">
-             <p className="text-gray-300">Start typing to search for songs, artists, albums, years, or video IDs.</p>
-           </div>
+          <div className="p-6 bg-gray-800 rounded-lg shadow-md text-center">
+            <p className="text-gray-400">Enter a search term to find music.</p>
+          </div>
         )}
       </section>
 
       {!searchPerformed && searchResults.length === 0 && (
         <section className="mt-12">
-          <h3 className="text-xl font-semibold mb-4 text-center">Or Browse Categories</h3>
+          <h3 className="text-xl font-semibold mb-4 text-center">Browse Categories</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {['Pop', 'Rock', 'Hip-Hop', 'Electronic', 'Jazz', 'Classical', 'Podcasts', 'Charts'].map((category) => (
               <div key={category} className="p-4 bg-gray-700 hover:bg-gray-600 rounded-lg shadow-md text-center cursor-pointer">
