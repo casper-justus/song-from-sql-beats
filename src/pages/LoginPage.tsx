@@ -19,7 +19,7 @@ export default function LoginPage() {
 
   if (isLoading || isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen charcoal-bg">
         <div className="bg-black/20 backdrop-blur-lg rounded-full px-8 py-4 border border-white/20">
           <p className="text-white text-lg">Loading...</p>
         </div>
@@ -28,7 +28,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 charcoal-bg">
       {/* App Logo */}
       <div className="mb-12 text-center">
         <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-2xl">

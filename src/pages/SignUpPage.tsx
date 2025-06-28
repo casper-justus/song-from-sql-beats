@@ -19,14 +19,14 @@ export default function SignUpPage() {
 
   if (isLoading || isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: '#121212' }}>
+      <div className="flex items-center justify-center min-h-screen charcoal-bg">
         <p className="text-white">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6" style={{ backgroundColor: '#121212' }}>
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 charcoal-bg">
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold text-white">Music Stream</h1>
       </div>
