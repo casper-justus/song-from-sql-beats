@@ -1,15 +1,15 @@
 
 import React from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import MusicPlayer from "@/components/MusicPlayer";
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/Auth0Context';
 import { Button } from '@/components/ui/button';
 import { LockKeyhole } from 'lucide-react';
 
 const Index = () => {
-  const { session, user, signOut, loading } = useAuth();
+  const { isAuthenticated, user, logout, isLoading } = useAuth();
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center text-white">
         <p className="text-lg">Loading user session...</p>
@@ -25,14 +25,14 @@ const Index = () => {
           <Link to="/" className="text-xl font-bold text-white">MusicApp</Link>
           
           <div className="flex items-center space-x-3">
-            {session && user ? (
+            {isAuthenticated && user ? (
               <>
                 <span className="text-sm text-gray-300 hidden sm:inline">
-                  {user.email?.split('@')[0]}
+                  {user.name || user.email}
                 </span>
                 <Button 
                   variant="outline" 
-                  onClick={signOut} 
+                  onClick={logout} 
                   className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
                 >
                   Sign Out
@@ -53,7 +53,7 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      {session && user ? (
+      {isAuthenticated && user ? (
         <MusicPlayer />
       ) : (
         <div className="flex flex-col items-center justify-center text-center mt-16 md:mt-24 p-6">
