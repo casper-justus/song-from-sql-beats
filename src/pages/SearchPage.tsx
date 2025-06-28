@@ -25,7 +25,7 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
-  const { playTrack } = useMusicPlayer();
+  const { selectSong } = useMusicPlayer();
   const { toast } = useToast();
 
   const performSearch = async (query: string) => {
@@ -78,17 +78,11 @@ export default function SearchPage() {
 
   const handlePlaySong = (song: Song) => {
     console.log('Playing song:', song);
-    playTrack({
-      id: song.id,
-      title: song.title,
-      artist: song.artist,
-      url: song.file_url,
-      cover: song.cover_url || '/placeholder.svg'
-    });
+    selectSong(song);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 pb-32">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 pb-32 pt-20">
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white max-w-4xl">
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-bold mb-2">Search Music</h1>
