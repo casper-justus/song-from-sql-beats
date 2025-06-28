@@ -1,190 +1,191 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search as SearchIcon, Play, Pause, Heart } from 'lucide-react';
+import { Search, Play, Music } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
-import { cn } from '@/lib/utils';
-import ResolvedCoverImage from '@/components/ResolvedCoverImage';
+import { useToast } from '@/hooks/use-toast';
 
-type Song = Tables<'songs'>;
+interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  year: number | null;
+  cover_url: string | null;
+  file_url: string;
+  video_id: string | null;
+  genre: string | null;
+  mood: string | null;
+}
 
 export default function SearchPage() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Song[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchPerformed, setSearchPerformed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { playTrack } = useMusicPlayer();
+  const { toast } = useToast();
 
-  const { selectSong, currentSong, isPlaying, togglePlay, toggleLikeSong, likedSongIds } = useMusicPlayer();
-
-  const handleSearch = async (e?: React.FormEvent<HTMLFormElement>) => {
-    if (e) e.preventDefault();
-    
-    if (!searchTerm.trim()) {
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
       setSearchResults([]);
-      setSearchPerformed(true);
       return;
     }
 
-    setIsLoading(true);
-    setSearchPerformed(true);
     try {
-      console.log('Searching for:', searchTerm);
-      
-      // Enhanced search across multiple fields
+      setLoading(true);
+      console.log('Searching for:', query);
+
       const { data, error } = await supabase
         .from('songs')
         .select('*')
-        .or(`title.ilike.%${searchTerm}%,artist.ilike.%${searchTerm}%,album.ilike.%${searchTerm}%,video_id.ilike.%${searchTerm}%,year::text.ilike.%${searchTerm}%`)
-        .order('created_at', { ascending: false });
-
-      console.log('Search results:', data, 'Error:', error);
+        .or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%,video_id.ilike.%${query}%,year.eq.${parseInt(query) || 0}`)
+        .limit(20);
 
       if (error) {
         console.error('Search error:', error);
-        throw error;
+        toast({
+          title: "Search Error",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
       }
-      
+
+      console.log('Search results:', data);
       setSearchResults(data || []);
     } catch (error) {
-      console.error('Error searching songs:', error);
-      setSearchResults([]);
+      console.error('Search error:', error);
+      toast({
+        title: "Search Error",
+        description: "Failed to search songs",
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      performSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   const handlePlaySong = (song: Song) => {
-    if (currentSong?.id === song.id && isPlaying) {
-      togglePlay();
-    } else if (currentSong?.id === song.id && !isPlaying) {
-      togglePlay();
-    } else {
-      selectSong(song);
-    }
-  };
-
-  const handleToggleLike = (song: Song) => {
-    toggleLikeSong(song.id, song.video_id);
+    console.log('Playing song:', song);
+    playTrack({
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      url: song.file_url,
+      cover: song.cover_url || '/placeholder.svg'
+    });
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white pb-32">
-      <header className="mb-8 text-center">
-        <h1 className="text-4xl font-bold">Search</h1>
-        <p className="text-lg text-gray-400 mt-2">
-          Find your favorite songs, artists, and albums.
-        </p>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 pb-32">
+      <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white max-w-4xl">
+        <header className="mb-8 text-center">
+          <h1 className="text-4xl font-bold mb-2">Search Music</h1>
+          <p className="text-lg text-gray-400">Find your favorite songs</p>
+        </header>
 
-      <div className="max-w-xl mx-auto mb-12">
-        <form
-          onSubmit={handleSearch}
-          className="flex items-center space-x-3 p-1 bg-white rounded-full shadow-md"
-        >
+        {/* Search Input */}
+        <div className="relative mb-8">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <Input
-            type="search"
-            placeholder="Search songs, artists, albums, or years..."
-            className="flex-grow bg-transparent border-none text-black placeholder-gray-500 focus:ring-0 h-12 text-base"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            type="text"
+            placeholder="Search by title, artist, album, year, or video ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-gray-800/50 border-gray-700 text-white placeholder-gray-400 text-lg py-3"
           />
-          <Button
-            type="submit"
-            variant="ghost"
-            size="icon"
-            className="text-gray-700 hover:text-black rounded-full w-10 h-10 flex-shrink-0"
-            disabled={isLoading}
-          >
-            <SearchIcon size={22} />
-          </Button>
-        </form>
-      </div>
+        </div>
 
-      <section>
-        {isLoading ? (
-          <p className="text-center text-gray-300">Searching...</p>
-        ) : searchPerformed && searchResults.length === 0 && searchTerm.trim() ? (
-          <div className="p-6 bg-gray-800 rounded-lg shadow-md text-center">
-            <h2 className="text-xl font-semibold mb-2">No Results Found for "{searchTerm}"</h2>
-            <p className="text-gray-400">Try searching for something else, or check your spelling.</p>
-          </div>
-        ) : searchResults.length > 0 ? (
-          <>
-            <h2 className="text-2xl font-semibold mb-4">Search Results ({searchResults.length})</h2>
-            <div className="space-y-3">
-              {searchResults.map((song, index) => (
-                <div
-                  key={song.id}
-                  className="flex items-center p-3 bg-gray-800/70 hover:bg-gray-700/80 rounded-lg transition-colors duration-200 group"
-                >
-                  <span className="text-gray-400 w-8 text-center mr-3 hidden sm:block">{index + 1}</span>
-                  <div className="w-12 h-12 rounded object-cover mr-4 flex-shrink-0 bg-gray-700">
-                    <ResolvedCoverImage
-                      imageKey={song.cover_url}
-                      altText={song.title || 'Song cover'}
-                      className="w-full h-full rounded object-cover"
-                    />
-                  </div>
-                  <div className="flex-grow min-w-0">
-                    <p className={`font-medium truncate ${currentSong?.id === song.id ? 'text-yellow-400' : 'text-white'}`}>
-                      {song.title || "Unknown Title"}
-                    </p>
-                    <p className="text-sm text-gray-400 truncate">{song.artist || "Unknown Artist"}</p>
-                    {song.album && (
-                      <p className="text-xs text-gray-500 truncate">{song.album} {song.year && `• ${song.year}`}</p>
-                    )}
-                    {song.video_id && (
-                      <p className="text-xs text-gray-600 truncate">ID: {song.video_id}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-3 ml-auto">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggleLike(song)}
-                      className={cn("text-gray-400 hover:text-white w-8 h-8", likedSongIds.has(song.id) ? "text-yellow-400" : "")}
-                    >
-                      <Heart className={cn("w-5 h-5", likedSongIds.has(song.id) ? "fill-current" : "")} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handlePlaySong(song)}
-                      className="text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity w-8 h-8"
-                    >
-                      {currentSong?.id === song.id && isPlaying ? <Pause size={20} /> : <Play size={20} />}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : !searchPerformed ? (
-          <div className="p-6 bg-gray-800 rounded-lg shadow-md min-h-[200px] flex items-center justify-center">
-            <p className="text-gray-300">Start typing to search for songs, artists, albums, years, or video IDs.</p>
-          </div>
-        ) : (
-          <div className="p-6 bg-gray-800 rounded-lg shadow-md text-center">
-            <p className="text-gray-400">Enter a search term to find music.</p>
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center py-8">
+            <p className="text-gray-400">Searching...</p>
           </div>
         )}
-      </section>
 
-      {!searchPerformed && searchResults.length === 0 && (
-        <section className="mt-12">
-          <h3 className="text-xl font-semibold mb-4 text-center">Browse Categories</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {['Pop', 'Rock', 'Hip-Hop', 'Electronic', 'Jazz', 'Classical', 'Podcasts', 'Charts'].map((category) => (
-              <div key={category} className="p-4 bg-gray-700 hover:bg-gray-600 rounded-lg shadow-md text-center cursor-pointer">
-                <p className="font-medium">{category}</p>
-              </div>
-            ))}
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-semibold mb-4">
+              Search Results ({searchResults.length})
+            </h2>
+            <div className="grid gap-4">
+              {searchResults.map((song) => (
+                <Card key={song.id} className="bg-gray-800/50 border-gray-700 hover:bg-gray-700/50 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
+                        {song.cover_url ? (
+                          <img 
+                            src={song.cover_url} 
+                            alt={`${song.title} cover`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Music className="w-8 h-8 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-semibold text-white truncate">
+                          {song.title}
+                        </h3>
+                        <p className="text-gray-400 truncate">
+                          {song.artist}
+                        </p>
+                        <div className="flex items-center space-x-2 text-sm text-gray-500">
+                          {song.album && <span>{song.album}</span>}
+                          {song.year && <span>• {song.year}</span>}
+                          {song.genre && <span>• {song.genre}</span>}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handlePlaySong(song)}
+                        size="icon"
+                        className="bg-yellow-500 hover:bg-yellow-600 text-black"
+                      >
+                        <Play className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        </section>
-      )}
+        )}
+
+        {/* No Results */}
+        {searchQuery && !loading && searchResults.length === 0 && (
+          <div className="text-center py-12">
+            <Music className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <p className="text-xl text-gray-400 mb-2">No songs found</p>
+            <p className="text-gray-500">
+              Try searching with different keywords
+            </p>
+          </div>
+        )}
+
+        {/* Initial State */}
+        {!searchQuery && (
+          <div className="text-center py-12">
+            <Search className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <p className="text-xl text-gray-400 mb-2">Start searching</p>
+            <p className="text-gray-500">
+              Search by song title, artist, album, year, or video ID
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

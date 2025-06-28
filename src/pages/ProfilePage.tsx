@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Mail, Calendar, Settings } from 'lucide-react';
+import { User, Mail, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth();
+  const { toast } = useToast();
   const [profile, setProfile] = useState({
     full_name: '',
     username: '',
@@ -28,7 +30,8 @@ export default function ProfilePage() {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      // Using any to bypass TypeScript issues until types are regenerated
+      const { data, error } = await (supabase as any)
         .from('profiles')
         .select('*')
         .eq('id', user?.id)
@@ -36,6 +39,11 @@ export default function ProfilePage() {
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error loading profile:', error);
+        toast({
+          title: "Error loading profile",
+          description: error.message,
+          variant: "destructive",
+        });
         return;
       }
 
@@ -48,6 +56,11 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Error loading profile:', error);
+      toast({
+        title: "Error loading profile",
+        description: "Failed to load profile data",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -56,7 +69,8 @@ export default function ProfilePage() {
   const updateProfile = async () => {
     try {
       setUpdating(true);
-      const { error } = await supabase
+      // Using any to bypass TypeScript issues until types are regenerated
+      const { error } = await (supabase as any)
         .from('profiles')
         .upsert({
           id: user?.id,
@@ -68,13 +82,24 @@ export default function ProfilePage() {
 
       if (error) {
         console.error('Error updating profile:', error);
-        alert('Error updating profile');
+        toast({
+          title: "Error updating profile",
+          description: error.message,
+          variant: "destructive",
+        });
       } else {
-        alert('Profile updated successfully!');
+        toast({
+          title: "Profile updated",
+          description: "Your profile has been updated successfully!",
+        });
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Error updating profile');
+      toast({
+        title: "Error updating profile",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
     } finally {
       setUpdating(false);
     }
