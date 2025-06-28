@@ -27,7 +27,7 @@ const queryClient = new QueryClient();
 
 // Auth0 configuration (ideally from .env)
 const auth0Domain = 'dev-uebw3vwts12kdrcg.eu.auth0.com';
-const auth0ClientId = 'Y32vJr4HjpwpsJAQYW9DPiOlAUyD1JsJ';
+const auth0ClientId = 'uH5r4isqyR1l3Bile5t4Ztr6Xs1Tc6gA';
 const auth0ApiIdentifier = 'https://api.songfromsqlbeats.com/api';
 
 const ConditionalBottomNavigation = () => {
