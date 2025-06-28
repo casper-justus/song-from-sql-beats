@@ -1,117 +1,44 @@
+// src/contexts/Auth0Context.tsx
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useAuth0, Auth0ContextInterface } from '@auth0/auth0-react';
+// Make sure you have @auth0/auth0-react installed and updated:
+// npm install @auth0/auth0-react@latest
 
-interface Auth0ContextProps {
-  user: any;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  loginWithRedirect: () => void;
-  logout: () => void;
-  getAccessTokenSilently: () => Promise<string>;
+// 1. Define the interface for your custom Auth0 context's properties.
+//    Crucially, we're extending Auth0ContextInterface from @auth0/auth0-react
+//    to ensure all the standard properties (like isAuthenticated, isLoading, loginWithRedirect, error)
+//    are correctly included.
+interface Auth0ContextProps extends Auth0ContextInterface {
+  // If you add any custom properties to your context beyond what useAuth0 provides, define them here.
+  // For example:
+  // myCustomFunction: () => void;
 }
 
-const Auth0Context = createContext<Auth0ContextProps>({
-  user: null,
-  isAuthenticated: false,
-  isLoading: true,
-  loginWithRedirect: () => {},
-  logout: () => {},
-  getAccessTokenSilently: async () => '',
-});
+// 2. Create the context with an initial undefined value.
+const Auth0Context = createContext<Auth0ContextProps | undefined>(undefined);
 
-interface Auth0ProviderWrapperProps {
-  children: React.ReactNode;
-}
+// 3. Create the provider component that will wrap your application.
+export const Auth0Provider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Use the useAuth0 hook from @auth0/auth0-react
+  // This hook provides all the necessary authentication state and functions.
+  const auth0 = useAuth0();
 
-export const Auth0ProviderWrapper: React.FC<Auth0ProviderWrapperProps> = ({ children }) => {
-  const {
-    user,
-    isAuthenticated,
-    isLoading,
-    loginWithRedirect,
-    logout,
-    getAccessTokenSilently,
-  } = useAuth0();
-  
-  const [profileSynced, setProfileSynced] = useState(false);
-
-  // Sync Auth0 user with Supabase profiles table
-  useEffect(() => {
-    const syncUserProfile = async () => {
-      if (isAuthenticated && user && !profileSynced) {
-        console.log('Syncing Auth0 user with Supabase:', user);
-        
-        try {
-          // Check if profile exists
-          const { data: existingProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.sub)
-            .maybeSingle();
-
-          if (!existingProfile) {
-            // Create new profile
-            const { error } = await supabase
-              .from('profiles')
-              .insert({
-                id: user.sub,
-                full_name: user.name || '',
-                username: user.nickname || user.email?.split('@')[0] || '',
-                avatar_url: user.picture || '',
-              });
-
-            if (error) {
-              console.error('Error creating profile:', error);
-            } else {
-              console.log('Profile created successfully');
-            }
-          } else {
-            // Update existing profile
-            const { error } = await supabase
-              .from('profiles')
-              .update({
-                full_name: user.name || existingProfile.full_name,
-                username: user.nickname || existingProfile.username,
-                avatar_url: user.picture || existingProfile.avatar_url,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', user.sub);
-
-            if (error) {
-              console.error('Error updating profile:', error);
-            } else {
-              console.log('Profile updated successfully');
-            }
-          }
-          
-          setProfileSynced(true);
-        } catch (error) {
-          console.error('Error syncing user profile:', error);
-        }
-      }
-    };
-
-    syncUserProfile();
-  }, [isAuthenticated, user, profileSynced]);
-
-  const value = {
-    user,
-    isAuthenticated,
-    isLoading,
-    loginWithRedirect,
-    logout: () => logout({ logoutParams: { returnTo: window.location.origin } }),
-    getAccessTokenSilently,
-  };
-
+  // The value provided to the context should be the entire object returned by useAuth0.
+  // This ensures that all properties and methods (including 'error' and the correctly typed 'loginWithRedirect')
+  // are available to consumers of your custom context.
   return (
-    <Auth0Context.Provider value={value}>
+    <Auth0Context.Provider value={auth0 as Auth0ContextProps}>
       {children}
     </Auth0Context.Provider>
   );
 };
 
+// 4. Create the custom hook to consume the context.
 export const useAuth = () => {
-  return useContext(Auth0Context);
+  const context = useContext(Auth0Context);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an Auth0Provider');
+  }
+  return context;
 };
