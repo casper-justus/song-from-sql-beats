@@ -1,44 +1,66 @@
 // src/contexts/Auth0Context.tsx
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useAuth0, Auth0ContextInterface } from '@auth0/auth0-react';
-// Make sure you have @auth0/auth0-react installed and updated:
-// npm install @auth0/auth0-react@latest
+import {
+  useAuth0,
+  Auth0ContextInterface,
+  Auth0ProviderOptions, // Import Auth0ProviderOptions for type safety
+  Auth0Provider as Auth0ProviderFromSDK // Rename the SDK's provider to avoid conflict
+} from '@auth0/auth0-react';
 
 // 1. Define the interface for your custom Auth0 context's properties.
-//    Crucially, we're extending Auth0ContextInterface from @auth0/auth0-react
-//    to ensure all the standard properties (like isAuthenticated, isLoading, loginWithRedirect, error)
-//    are correctly included.
-interface Auth0ContextProps extends Auth0ContextInterface {
-  // If you add any custom properties to your context beyond what useAuth0 provides, define them here.
-  // For example:
-  // myCustomFunction: () => void;
+//    This extends the SDK's interface, ensuring all standard properties are included.
+interface CustomAuthContextInterface extends Auth0ContextInterface {
+  // Add any custom properties/methods you might want to expose via your useAuth hook here
 }
 
-// 2. Create the context with an initial undefined value.
-const Auth0Context = createContext<Auth0ContextProps | undefined>(undefined);
+// 2. Define the props for YOUR custom Auth0Provider component.
+//    It should accept all the standard Auth0ProviderOptions from the SDK, plus children.
+interface CustomAuth0ProviderProps extends Auth0ProviderOptions {
+  children: ReactNode;
+}
 
-// 3. Create the provider component that will wrap your application.
-export const Auth0Provider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Use the useAuth0 hook from @auth0/auth0-react
-  // This hook provides all the necessary authentication state and functions.
-  const auth0 = useAuth0();
+// 3. Create the context that your `useAuth` hook will consume.
+//    Its value will be of type CustomAuthContextInterface.
+const Auth0Context = createContext<CustomAuthContextInterface | undefined>(undefined);
 
-  // The value provided to the context should be the entire object returned by useAuth0.
-  // This ensures that all properties and methods (including 'error' and the correctly typed 'loginWithRedirect')
-  // are available to consumers of your custom context.
+// 4. YOUR custom Auth0Provider component.
+//    This component will act as a wrapper. It receives the Auth0 configuration
+//    props and passes them directly to the Auth0Provider from the SDK.
+export const Auth0Provider: React.FC<CustomAuth0ProviderProps> = ({ children, ...auth0ProviderOptions }) => {
   return (
-    <Auth0Context.Provider value={auth0 as Auth0ContextProps}>
+    // Render the Auth0Provider from the SDK, passing all its options.
+    // This is where the domain, clientId, authorizationParams, etc., are actually consumed.
+    <Auth0ProviderFromSDK {...auth0ProviderOptions}>
+      {/*
+        Now, within the scope of the SDK's Auth0Provider, we can create our internal context.
+        The `useAuth0()` hook (called inside Auth0InternalContextProvider) will now correctly
+        have access to the Auth0 state and functions.
+      */}
+      <Auth0InternalContextProvider>
+        {children}
+      </Auth0InternalContextProvider>
+    </Auth0ProviderFromSDK>
+  );
+};
+
+// 5. Internal component to provide the context value for your `useAuth` hook.
+//    This component exists solely to call `useAuth0()` within the correct scope
+//    (i.e., as a child of Auth0ProviderFromSDK) and provide its result to your custom context.
+const Auth0InternalContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const auth0 = useAuth0(); // This call must be inside Auth0ProviderFromSDK's children
+  return (
+    <Auth0Context.Provider value={auth0 as CustomAuthContextInterface}>
       {children}
     </Auth0Context.Provider>
   );
 };
 
-// 4. Create the custom hook to consume the context.
+// 6. Your custom `useAuth` hook to consume the context.
 export const useAuth = () => {
   const context = useContext(Auth0Context);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an Auth0Provider');
+    throw new Error('useAuth must be used within an Auth0Provider'); // Refers to YOUR custom Auth0Provider
   }
   return context;
 };
