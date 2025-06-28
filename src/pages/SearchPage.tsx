@@ -19,6 +19,12 @@ interface Song {
   video_id: string | null;
   genre: string | null;
   mood: string | null;
+  created_at: string;
+  local_path_on_upload: string | null;
+  lyrics_url: string | null;
+  nfo_url: string | null;
+  storage_path: string;
+  user_id: string | null;
 }
 
 export default function SearchPage() {
