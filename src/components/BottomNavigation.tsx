@@ -12,7 +12,7 @@ export function BottomNavigation() {
     { icon: Search, label: 'Search', path: '/search' },
     { icon: Music, label: 'Library', path: '/library' },
     { icon: Heart, label: 'Liked', path: '/library?tab=liked' },
-    { icon: User, label: 'Profile', path: '/login' },
+    { icon: User, label: 'Profile', path: '/profile' },
   ];
 
   return (

@@ -1,5 +1,5 @@
 # wrangler.toml
-name = "aws" # Your project name
+name = "shit" # Your project name
 compatibility_date = "2024-05-29" # Moved to top level
 
 # Define the root of your Pages Functions.

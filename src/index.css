@@ -135,6 +135,57 @@
       transform: translateX(-75%) rotate(180deg);
     }
   }
+
+  /* Charcoal background for login pages */
+  .charcoal-bg {
+    background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 25%, #333333 50%, #1f1f1f 75%, #0a0a0a 100%);
+    background-attachment: fixed;
+    position: relative;
+  }
+
+  .charcoal-bg::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+      radial-gradient(ellipse at 20% 80%, rgba(75, 75, 75, 0.2) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(45, 45, 45, 0.3) 0%, transparent 50%),
+      radial-gradient(ellipse at 40% 40%, rgba(60, 60, 60, 0.15) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* Wave lines for charcoal background */
+  .charcoal-bg::after {
+    content: '';
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 200%;
+    height: 120px;
+    background: linear-gradient(90deg, 
+      rgba(100, 100, 100, 0.08) 0%, 
+      rgba(70, 70, 70, 0.12) 25%, 
+      rgba(50, 50, 50, 0.08) 50%, 
+      rgba(100, 100, 100, 0.08) 75%, 
+      rgba(70, 70, 70, 0.12) 100%);
+    border-radius: 50% 50% 0 0;
+    animation: charcoal-wave 25s ease-in-out infinite;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  @keyframes charcoal-wave {
+    0%, 100% {
+      transform: translateX(-25%) rotate(0deg);
+    }
+    50% {
+      transform: translateX(-75%) rotate(180deg);
+    }
+  }
 }
 
 /* Spotify-like focus styles */

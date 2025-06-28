@@ -1,26 +1,25 @@
 
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { LoginForm } from '@/components/auth/LoginForm';
-import { SocialLogins } from '@/components/auth/SocialLogins';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Auth0LoginForm } from '@/components/auth/Auth0LoginForm';
 import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/Auth0Context';
 import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
-  const { session, loading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && session) {
+    if (!isLoading && isAuthenticated) {
       navigate('/');
     }
-  }, [session, loading, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
-  if (loading || session) {
+  if (isLoading || isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen charcoal-bg">
         <div className="bg-black/20 backdrop-blur-lg rounded-full px-8 py-4 border border-white/20">
           <p className="text-white text-lg">Loading...</p>
         </div>
@@ -29,7 +28,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 charcoal-bg">
       {/* App Logo */}
       <div className="mb-12 text-center">
         <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-2xl">
@@ -45,24 +44,7 @@ export default function LoginPage() {
         </CardHeader>
         
         <CardContent className="space-y-6 px-8 pb-8">
-          <SocialLogins />
-
-          <div className="flex items-center my-6">
-            <Separator className="flex-grow bg-gray-600" />
-            <span className="mx-6 text-sm font-semibold text-gray-400 uppercase tracking-wider">OR</span>
-            <Separator className="flex-grow bg-gray-600" />
-          </div>
-
-          <LoginForm />
-
-          <div className="text-center mt-8">
-            <Link 
-              to="/password-reset" 
-              className="text-sm text-gray-400 hover:text-white hover:underline transition-colors underline-offset-4"
-            >
-              Forgot your password?
-            </Link>
-          </div>
+          <Auth0LoginForm />
         </CardContent>
         
         <CardFooter className="flex flex-col space-y-6 px-8 pb-10 border-t border-gray-700/50 mt-4">
@@ -80,7 +62,7 @@ export default function LoginPage() {
       </Card>
 
       <p className="mt-8 text-xs text-gray-500 text-center max-w-md leading-relaxed">
-        This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.
+        This site is protected by Auth0 and the Google Privacy Policy and Terms of Service apply.
       </p>
     </div>
   );
