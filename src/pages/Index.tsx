@@ -12,14 +12,14 @@ const Index = () => {
 
   if (!isLoaded) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center text-white">
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center text-white charcoal-bg wave-bg">
         <p className="text-lg">Loading user session...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen p-4 text-white wave-bg">
+    <div className={`flex flex-col items-center justify-start min-h-screen p-4 text-white ${isSignedIn ? 'wave-bg' : 'charcoal-bg wave-bg'}`}>
       {/* Minimal Top Navigation */}
       <header className="w-full max-w-5xl mb-8 sticky top-0 z-40 bg-black/20 backdrop-blur-md rounded-b-lg">
         <nav className="flex justify-between items-center py-4 px-6">

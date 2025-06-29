@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useUser, useAuth } from '@clerk/clerk-react';
+import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-react';
 
 interface ClerkContextInterface {
   user: any;
@@ -13,7 +13,7 @@ const ClerkContext = createContext<ClerkContextInterface | undefined>(undefined)
 
 export const ClerkProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user, isLoaded } = useUser();
-  const { signOut } = useAuth();
+  const { signOut } = useClerkAuth();
 
   const contextValue = {
     user,

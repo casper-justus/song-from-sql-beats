@@ -120,7 +120,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 pb-32 pt-20 wave-bg">
+    <div className="min-h-screen charcoal-bg wave-bg pb-32 pt-20">
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white max-w-2xl">
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-bold mb-2">Profile</h1>
