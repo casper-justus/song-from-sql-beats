@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/Auth0Context';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
   const { toast } = useToast();
   const [profile, setProfile] = useState({
     full_name: '',
@@ -22,10 +23,10 @@ export default function ProfilePage() {
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isLoaded && user) {
       loadProfile();
     }
-  }, [user, isAuthenticated]);
+  }, [user, isLoaded]);
 
   const loadProfile = async () => {
     try {
@@ -33,7 +34,7 @@ export default function ProfilePage() {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user?.sub)
+        .eq('id', user?.id)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -48,16 +49,16 @@ export default function ProfilePage() {
 
       if (data) {
         setProfile({
-          full_name: data.full_name || user?.name || '',
-          username: data.username || user?.nickname || '',
-          avatar_url: data.avatar_url || user?.picture || ''
+          full_name: data.full_name || user?.fullName || '',
+          username: data.username || user?.username || '',
+          avatar_url: data.avatar_url || user?.imageUrl || ''
         });
       } else {
-        // Set default values from Auth0 user data
+        // Set default values from Clerk user data
         setProfile({
-          full_name: user?.name || '',
-          username: user?.nickname || user?.email?.split('@')[0] || '',
-          avatar_url: user?.picture || ''
+          full_name: user?.fullName || '',
+          username: user?.username || user?.emailAddresses[0]?.emailAddress?.split('@')[0] || '',
+          avatar_url: user?.imageUrl || ''
         });
       }
     } catch (error) {
@@ -78,7 +79,7 @@ export default function ProfilePage() {
       const { error } = await supabase
         .from('profiles')
         .upsert({
-          id: user?.sub,
+          id: user?.id,
           full_name: profile.full_name,
           username: profile.username,
           avatar_url: profile.avatar_url,
@@ -119,7 +120,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 pb-32 pt-20">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 pb-32 pt-20 wave-bg">
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white max-w-2xl">
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-bold mb-2">Profile</h1>
@@ -149,7 +150,7 @@ export default function ProfilePage() {
               <Input
                 id="email"
                 type="email"
-                value={user?.email || ''}
+                value={user?.emailAddresses[0]?.emailAddress || ''}
                 disabled
                 className="bg-gray-700 border-gray-600 text-white"
               />
@@ -200,14 +201,14 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Auth0 User Info */}
+            {/* Clerk User Info */}
             <div className="pt-4 border-t border-gray-700">
               <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
                 <Calendar size={16} />
-                Auth0 User ID: {user?.sub}
+                Clerk User ID: {user?.id}
               </div>
               <div className="text-sm text-gray-400">
-                Last Login: {user?.updated_at ? new Date(user.updated_at).toLocaleDateString() : 'Unknown'}
+                Last Login: {user?.lastSignInAt ? new Date(user.lastSignInAt).toLocaleDateString() : 'Unknown'}
               </div>
             </div>
 
@@ -221,7 +222,7 @@ export default function ProfilePage() {
                 {updating ? 'Updating...' : 'Update Profile'}
               </Button>
               <Button
-                onClick={logout}
+                onClick={() => signOut()}
                 variant="outline"
                 className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
               >
