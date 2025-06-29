@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';  
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/ClerkContext';
 import { Play, Pause, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

@@ -49,15 +49,15 @@ export default function ProfilePage() {
 
       if (data) {
         setProfile({
-          full_name: data.full_name || user?.fullName || '',
-          username: data.username || user?.username || '',
-          avatar_url: data.avatar_url || user?.imageUrl || ''
+          full_name: data.name || user?.fullName || '',
+          username: data.email?.split('@')[0] || user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || '',
+          avatar_url: user?.imageUrl || ''
         });
       } else {
         // Set default values from Clerk user data
         setProfile({
           full_name: user?.fullName || '',
-          username: user?.username || user?.emailAddresses[0]?.emailAddress?.split('@')[0] || '',
+          username: user?.username || user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || '',
           avatar_url: user?.imageUrl || ''
         });
       }
@@ -80,10 +80,8 @@ export default function ProfilePage() {
         .from('profiles')
         .upsert({
           id: user?.id,
-          full_name: profile.full_name,
-          username: profile.username,
-          avatar_url: profile.avatar_url,
-          updated_at: new Date().toISOString()
+          name: profile.full_name,
+          email: user?.emailAddresses?.[0]?.emailAddress || '',
         });
 
       if (error) {
@@ -150,7 +148,7 @@ export default function ProfilePage() {
               <Input
                 id="email"
                 type="email"
-                value={user?.emailAddresses[0]?.emailAddress || ''}
+                value={user?.emailAddresses?.[0]?.emailAddress || ''}
                 disabled
                 className="bg-gray-700 border-gray-600 text-white"
               />
