@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';  
-import { useAuth } from '@/contexts/ClerkContext';
+import { useUser } from '@clerk/clerk-react';
 import { Play, Pause, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,8 +17,13 @@ interface PlaylistManagerProps {
 }
 
 const PlaylistManager: React.FC<PlaylistManagerProps> = ({ playlist }) => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { supabase, isReady } = useClerkSupabase();
+  
+  const [playlistSongs, setPlaylistSongs] = useState<Song[]>([]);
+  const [showAddSongs, setShowAddSongs] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const { 
     songs, 
     selectSong, 
@@ -29,10 +33,6 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ playlist }) => {
     addSongToPlaylist,
     removeSongFromPlaylist
   } = useMusicPlayer();
-  
-  const [playlistSongs, setPlaylistSongs] = useState<Song[]>([]);
-  const [showAddSongs, setShowAddSongs] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchPlaylistSongs();

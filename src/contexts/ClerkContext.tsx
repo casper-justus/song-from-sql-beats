@@ -29,10 +29,10 @@ export const ClerkProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   );
 };
 
-export const useAuth = () => {
+export const useClerkAuth = () => {
   const context = useContext(ClerkContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within a ClerkProvider');
+    throw new Error('useClerkAuth must be used within a ClerkProvider');
   }
   return context;
 };
