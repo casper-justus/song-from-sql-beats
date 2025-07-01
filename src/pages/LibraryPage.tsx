@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/ClerkContext';
+import { useClerkAuth } from '@/contexts/ClerkContext';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
@@ -19,7 +19,7 @@ type Playlist = Tables<'playlists'>;
 const spotifyGreen = "#1DB954";
 
 export default function LibraryPage() {
-  const { user } = useAuth();
+  const { user } = useClerkAuth();
   const { supabase, isReady } = useClerkSupabase();
   const { 
     selectSong, 
