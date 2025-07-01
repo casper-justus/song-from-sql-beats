@@ -11,24 +11,18 @@ export type Database = {
     Tables: {
       playlist_songs: {
         Row: {
-          added_at: string
-          id: string
+          added_at: string | null
           playlist_id: string
-          position: number
           song_id: string
         }
         Insert: {
-          added_at?: string
-          id?: string
+          added_at?: string | null
           playlist_id: string
-          position?: number
           song_id: string
         }
         Update: {
-          added_at?: string
-          id?: string
+          added_at?: string | null
           playlist_id?: string
-          position?: number
           song_id?: string
         }
         Relationships: [
@@ -50,69 +44,80 @@ export type Database = {
       }
       playlists: {
         Row: {
-          cover_image_key: string | null
-          created_at: string
+          created_at: string | null
           description: string | null
           id: string
           is_public: boolean | null
           name: string
-          updated_at: string
           user_id: string
         }
         Insert: {
-          cover_image_key?: string | null
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           id?: string
           is_public?: boolean | null
           name: string
-          updated_at?: string
           user_id: string
         }
         Update: {
-          cover_image_key?: string | null
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           id?: string
           is_public?: boolean | null
           name?: string
-          updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "playlists_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
+          avatar_url: string | null
+          created_at: string | null
           email: string | null
           id: string
           name: string | null
+          username: string | null
         }
         Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
           email?: string | null
           id: string
           name?: string | null
+          username?: string | null
         }
         Update: {
+          avatar_url?: string | null
+          created_at?: string | null
           email?: string | null
           id?: string
           name?: string | null
+          username?: string | null
         }
         Relationships: []
       }
       songs: {
         Row: {
           album: string | null
-          artist: string
+          artist: string | null
           cover_url: string | null
           created_at: string | null
-          file_url: string
+          file_url: string | null
           genre: string | null
           id: string
           local_path_on_upload: string | null
           lyrics_url: string | null
           mood: string | null
           nfo_url: string | null
-          storage_path: string
+          storage_path: string | null
           title: string
           user_id: string | null
           video_id: string | null
@@ -120,17 +125,17 @@ export type Database = {
         }
         Insert: {
           album?: string | null
-          artist: string
+          artist?: string | null
           cover_url?: string | null
           created_at?: string | null
-          file_url: string
+          file_url?: string | null
           genre?: string | null
           id?: string
           local_path_on_upload?: string | null
           lyrics_url?: string | null
           mood?: string | null
           nfo_url?: string | null
-          storage_path: string
+          storage_path?: string | null
           title: string
           user_id?: string | null
           video_id?: string | null
@@ -138,55 +143,61 @@ export type Database = {
         }
         Update: {
           album?: string | null
-          artist?: string
+          artist?: string | null
           cover_url?: string | null
           created_at?: string | null
-          file_url?: string
+          file_url?: string | null
           genre?: string | null
           id?: string
           local_path_on_upload?: string | null
           lyrics_url?: string | null
           mood?: string | null
           nfo_url?: string | null
-          storage_path?: string
+          storage_path?: string | null
           title?: string
           user_id?: string | null
           video_id?: string | null
           year?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "songs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_liked_songs: {
         Row: {
-          created_at: string | null
-          id: number
           liked_at: string | null
           song_id: string
           user_id: string
-          video_id: string | null
         }
         Insert: {
-          created_at?: string | null
-          id?: never
           liked_at?: string | null
           song_id: string
           user_id: string
-          video_id?: string | null
         }
         Update: {
-          created_at?: string | null
-          id?: never
           liked_at?: string | null
           song_id?: string
           user_id?: string
-          video_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "fk_song"
+            foreignKeyName: "user_liked_songs_song_id_fkey"
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_liked_songs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -196,7 +207,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      requesting_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

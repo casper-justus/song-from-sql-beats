@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';  
 import { useAuth } from '@/contexts/ClerkContext';
@@ -19,6 +19,7 @@ interface PlaylistManagerProps {
 
 const PlaylistManager: React.FC<PlaylistManagerProps> = ({ playlist }) => {
   const { user } = useAuth();
+  const { supabase, isReady } = useClerkSupabase();
   const { 
     songs, 
     selectSong, 
@@ -35,12 +36,14 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ playlist }) => {
 
   useEffect(() => {
     fetchPlaylistSongs();
-  }, [playlist.id]);
+  }, [playlist.id, isReady, supabase]);
 
   const fetchPlaylistSongs = async () => {
-    if (!user) return;
+    if (!user || !isReady || !supabase) return;
     setIsLoading(true);
     try {
+      console.log('Fetching playlist songs for playlist:', playlist.id);
+      
       const { data, error } = await supabase
         .from('playlist_songs')
         .select(`
@@ -84,6 +87,16 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ playlist }) => {
   const availableSongs = songs.filter(song => 
     !playlistSongs.some(playlistSong => playlistSong.id === song.id)
   );
+
+  if (!isReady) {
+    return (
+      <Card className="bg-gray-800 border-gray-700">
+        <CardContent className="p-4">
+          <p className="text-gray-400">Loading playlist...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="bg-gray-800 border-gray-700">

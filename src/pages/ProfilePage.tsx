@@ -7,13 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, Mail, Calendar } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
+  const { supabase, isReady } = useClerkSupabase();
   const { toast } = useToast();
+  
   const [profile, setProfile] = useState({
     full_name: '',
     username: '',
@@ -23,21 +25,25 @@ export default function ProfilePage() {
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    if (isLoaded && user) {
+    if (isLoaded && user && isReady && supabase) {
       loadProfile();
     }
-  }, [user, isLoaded]);
+  }, [user, isLoaded, isReady, supabase]);
 
   const loadProfile = async () => {
+    if (!supabase || !user) return;
+    
     try {
       setLoading(true);
+      console.log('Loading profile for user:', user.id);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error loading profile:', error);
         toast({
           title: "Error loading profile",
@@ -49,16 +55,16 @@ export default function ProfilePage() {
 
       if (data) {
         setProfile({
-          full_name: data.name || user?.fullName || '',
-          username: data.email?.split('@')[0] || user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || '',
-          avatar_url: user?.imageUrl || ''
+          full_name: data.name || user.fullName || '',
+          username: data.email?.split('@')[0] || user.emailAddresses?.[0]?.emailAddress?.split('@')[0] || '',
+          avatar_url: user.imageUrl || ''
         });
       } else {
         // Set default values from Clerk user data
         setProfile({
-          full_name: user?.fullName || '',
-          username: user?.username || user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || '',
-          avatar_url: user?.imageUrl || ''
+          full_name: user.fullName || '',
+          username: user.username || user.emailAddresses?.[0]?.emailAddress?.split('@')[0] || '',
+          avatar_url: user.imageUrl || ''
         });
       }
     } catch (error) {
@@ -74,14 +80,18 @@ export default function ProfilePage() {
   };
 
   const updateProfile = async () => {
+    if (!supabase || !user) return;
+    
     try {
       setUpdating(true);
+      console.log('Updating profile for user:', user.id);
+      
       const { error } = await supabase
         .from('profiles')
         .upsert({
-          id: user?.id,
+          id: user.id,
           name: profile.full_name,
-          email: user?.emailAddresses?.[0]?.emailAddress || '',
+          email: user.emailAddresses?.[0]?.emailAddress || '',
         });
 
       if (error) {
@@ -109,7 +119,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
+  if (loading || !isReady) {
     return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white">
         <p className="text-center">Loading profile...</p>
@@ -214,7 +224,7 @@ export default function ProfilePage() {
             <div className="flex gap-3 pt-4">
               <Button
                 onClick={updateProfile}
-                disabled={updating}
+                disabled={updating || !isReady}
                 className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black"
               >
                 {updating ? 'Updating...' : 'Update Profile'}

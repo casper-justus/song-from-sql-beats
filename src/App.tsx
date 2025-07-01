@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 
 import { MusicPlayerProvider } from "./contexts/MusicPlayerContext";
+import { ClerkSupabaseProvider } from "./contexts/ClerkSupabaseContext";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -56,15 +57,17 @@ const AppContent = () => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <MusicPlayerProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
-      </TooltipProvider>
-    </MusicPlayerProvider>
+    <ClerkSupabaseProvider>
+      <MusicPlayerProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </TooltipProvider>
+      </MusicPlayerProvider>
+    </ClerkSupabaseProvider>
   </QueryClientProvider>
 );
 

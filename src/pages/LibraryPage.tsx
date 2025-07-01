@@ -1,8 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/ClerkContext';
+import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Play, Pause, Heart, Plus, Music, Trash2 } from 'lucide-react';
@@ -21,6 +20,7 @@ const spotifyGreen = "#1DB954";
 
 export default function LibraryPage() {
   const { user } = useAuth();
+  const { supabase, isReady } = useClerkSupabase();
   const { 
     selectSong, 
     currentSong, 
@@ -41,13 +41,15 @@ export default function LibraryPage() {
 
   useEffect(() => {
     const fetchLikedSongsDetails = async () => {
-      if (!user) {
+      if (!user || !isReady || !supabase) {
         setIsLoading(false);
         setLikedSongsDetails([]);
         return;
       }
       setIsLoading(true);
       try {
+        console.log('Fetching liked songs for user:', user.id);
+        
         const { data: likedEntries, error: likedError } = await supabase
           .from('user_liked_songs')
           .select('song_id')
@@ -77,7 +79,7 @@ export default function LibraryPage() {
     };
 
     fetchLikedSongsDetails();
-  }, [user]);
+  }, [user, isReady, supabase]);
 
   const handlePlaySong = (song: Song) => {
     if (currentSong?.id === song.id && isPlaying) {
@@ -120,7 +122,7 @@ export default function LibraryPage() {
 
       <section className="mb-12">
         <h2 className="text-3xl font-semibold mb-6 border-b border-gray-700 pb-3">Liked Songs</h2>
-        {isLoading ? (
+        {isLoading || !isReady ? (
           <p className="text-gray-300">Loading your liked songs...</p>
         ) : likedSongsDetails.length > 0 ? (
           <div className="space-y-3">
