@@ -3,7 +3,7 @@ import React, { createContext, useContext, ReactNode } from 'react';
 
 // Define a basic interface for Auth0 context without importing the package
 interface CustomAuthContextInterface {
-  loginWithRedirect: () => Promise<void>;
+  loginWithRedirect: (options?: any) => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
   error: Error | null;
@@ -15,8 +15,9 @@ const Auth0Context = createContext<CustomAuthContextInterface | undefined>(undef
 // Basic Auth0Provider that doesn't use the actual Auth0 SDK
 export const Auth0Provider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const contextValue: CustomAuthContextInterface = {
-    loginWithRedirect: async () => {
+    loginWithRedirect: async (options?: any) => {
       console.warn('Auth0 is not properly configured. Please install @auth0/auth0-react if you want to use Auth0.');
+      console.log('Login options:', options);
     },
     isLoading: false,
     isAuthenticated: false,

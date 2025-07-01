@@ -1,33 +1,33 @@
 
 import { useState, useEffect } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { useUser } from '@clerk/clerk-react';
+import { useSession } from '@clerk/clerk-react';
 import { Database } from '@/integrations/supabase/types';
 
 const SUPABASE_URL = "https://dqckopgetuodqhgnhhxw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxY2tvcGdldHVvZHFoZ25oaHh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExOTM5NzYsImV4cCI6MjA2Njc2OTk3Nn0.0PJ5KWUbjI4dupIxScguEf0CrYKtN-uVpVTRxHNi54w";
 
 export function useClerkSupabaseClient(): SupabaseClient<Database> | null {
-  const { user, isLoaded } = useUser();
+  const { session, isLoaded } = useSession();
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
 
   useEffect(() => {
-    if (isLoaded && user) {
+    if (isLoaded && session) {
       // Create a Supabase client that uses Clerk's JWT token
       const client = createClient<Database>(
         SUPABASE_URL,
         SUPABASE_ANON_KEY,
         {
           global: {
-            fetch: async (url, options = {}) => {
+            fetch: async (url, options: RequestInit = {}) => {
               try {
-                // Get the Clerk JWT token
-                const clerkToken = await user.getToken({
+                // Get the Clerk JWT token from the session
+                const clerkToken = await session.getToken({
                   template: 'supabase', // This must match your Clerk JWT template name
                 });
 
                 // Add the Clerk token to the Authorization header
-                const headers = new Headers(options.headers);
+                const headers = new Headers(options.headers || {});
                 if (clerkToken) {
                   headers.set('Authorization', `Bearer ${clerkToken}`);
                 }
@@ -47,11 +47,11 @@ export function useClerkSupabaseClient(): SupabaseClient<Database> | null {
         }
       );
       setSupabase(client);
-    } else if (isLoaded && !user) {
-      // If Clerk is loaded but no user, set supabase client to null
+    } else if (isLoaded && !session) {
+      // If Clerk is loaded but no session, set supabase client to null
       setSupabase(null);
     }
-  }, [user, isLoaded]);
+  }, [session, isLoaded]);
 
   return supabase;
 }
