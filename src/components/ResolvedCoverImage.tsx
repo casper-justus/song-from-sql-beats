@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from '@clerk/clerk-react';
 
 const SUPABASE_URL_FOR_FUNCTIONS = "https://dqckopgetuodqhgnhhxw.supabase.co";
 
@@ -23,7 +23,7 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
   const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { session } = useAuth();
+  const { session } = useSession();
 
   useEffect(() => {
     if (!imageKey) {
@@ -37,8 +37,8 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
     }
 
     const fetchImageUrl = async () => {
-      if (!session?.access_token) {
-        setError("Authentication token not available.");
+      if (!session) {
+        setError("Authentication session not available.");
         setResolvedSrc(placeholderSrc);
         return;
       }
@@ -46,9 +46,17 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
       setIsLoading(true);
       setError(null);
       try {
+        const token = await session.getToken({
+          template: 'supabase'
+        });
+
+        if (!token) {
+          throw new Error("Failed to get authentication token");
+        }
+
         const response = await fetch(`${SUPABASE_URL_FOR_FUNCTIONS}/functions/v1/super-handler?key=${encodeURIComponent(imageKey)}`, {
           headers: {
-            'Authorization': `Bearer ${session.access_token}`
+            'Authorization': `Bearer ${token}`
           }
         });
 

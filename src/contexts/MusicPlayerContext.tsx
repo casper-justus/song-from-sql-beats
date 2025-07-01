@@ -1,9 +1,8 @@
-
 import React, { createContext, useContext, useState, useRef, useEffect, ReactNode, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Database, Tables } from '@/integrations/supabase/types';
 import { useUser, useSession } from '@clerk/clerk-react';
+import { Database, Tables } from '@/integrations/supabase/types';
+import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 
 const SUPABASE_URL_FOR_FUNCTIONS = "https://dqckopgetuodqhgnhhxw.supabase.co";
 
@@ -43,6 +42,7 @@ const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(und
 export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useUser();
   const { session } = useSession();
+  const { supabase } = useClerkSupabase();
   const [songs, setSongs] = useState<Song[]>([]);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [likedSongIds, setLikedSongIds] = useState<Set<string>>(new Set());
@@ -69,16 +69,25 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     setIsResolvingUrl(true);
     try {
-      const token = await session.getToken();
+      const token = await session.getToken({
+        template: 'supabase'
+      });
+      
+      if (!token) {
+        throw new Error("Failed to get authentication token");
+      }
+
       const response = await fetch(`${SUPABASE_URL_FOR_FUNCTIONS}/functions/v1/super-handler?key=${encodeURIComponent(fileKey)}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
         throw new Error(`Failed to resolve URL: ${errorData.message || response.statusText}`);
       }
+      
       const data = await response.json();
       if (data && data.url) {
         setResolvedUrlCache(prev => ({ ...prev, [fileKey]: data.url }));
@@ -97,6 +106,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
     queryKey: ['songs'],
     queryFn: async () => {
+      if (!supabase) return [];
       const { data, error } = await supabase.from('songs').select('*').order('created_at', { ascending: false });
       if (error) {
         console.error("Error fetching songs:", error);
@@ -104,14 +114,14 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && !!supabase,
   });
 
   // Fetch playlists
   const { data: fetchedPlaylists = [] } = useQuery({
     queryKey: ['playlists', user?.id],
     queryFn: async () => {
-      if (!user) return [];
+      if (!user || !supabase) return [];
       const { data, error } = await supabase.from('playlists').select('*').order('created_at', { ascending: false });
       if (error) {
         console.error("Error fetching playlists:", error);
@@ -119,7 +129,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && !!supabase,
   });
 
   useEffect(() => {
@@ -134,7 +144,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Fetch liked songs
   useEffect(() => {
     const fetchLiked = async () => {
-      if (!user) {
+      if (!user || !supabase) {
         setLikedSongIds(new Set());
         return;
       }
@@ -147,13 +157,13 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
     fetchLiked();
-  }, [user]);
+  }, [user, supabase]);
 
   const isCurrentSongLiked = currentSong ? likedSongIds.has(currentSong.id) : false;
 
   // Toggle like song
   const toggleLikeSong = async (songId: string, video_id: string) => {
-    if (!user || !songId) return;
+    if (!user || !songId || !supabase) return;
     const alreadyLiked = likedSongIds.has(songId);
     if (alreadyLiked) {
       const { error } = await supabase.from('user_liked_songs').delete().match({ user_id: user.id, song_id: songId });
@@ -173,7 +183,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   // Playlist functions
   const createPlaylist = async (name: string, description?: string) => {
-    if (!user) return;
+    if (!user || !supabase) return;
     const { error } = await supabase.from('playlists').insert({
       user_id: user.id,
       name,
@@ -187,7 +197,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const addSongToPlaylist = async (playlistId: string, songId: string) => {
-    if (!user) return;
+    if (!user || !supabase) return;
     const { error } = await supabase.from('playlist_songs').insert({
       playlist_id: playlistId,
       song_id: songId
@@ -198,7 +208,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const removeSongFromPlaylist = async (playlistId: string, songId: string) => {
-    if (!user) return;
+    if (!user || !supabase) return;
     const { error } = await supabase.from('playlist_songs')
       .delete()
       .match({ playlist_id: playlistId, song_id: songId });
@@ -208,7 +218,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const deletePlaylist = async (playlistId: string) => {
-    if (!user) return;
+    if (!user || !supabase) return;
     const { error } = await supabase.from('playlists').delete().eq('id', playlistId);
     if (error) {
       console.error('Error deleting playlist:', error);
