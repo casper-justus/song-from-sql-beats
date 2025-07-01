@@ -27,7 +27,7 @@ export function useClerkSupabaseClient(): SupabaseClient<Database> | null {
                 });
 
                 // Add the Clerk token to the Authorization header
-                const headers = new Headers(options?.headers);
+                const headers = new Headers(options.headers);
                 if (clerkToken) {
                   headers.set('Authorization', `Bearer ${clerkToken}`);
                 }
