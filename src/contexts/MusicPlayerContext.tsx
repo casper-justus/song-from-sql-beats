@@ -77,15 +77,18 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw new Error("Failed to get authentication token");
       }
 
+      console.log('Using token for super-handler request');
       const response = await fetch(`${SUPABASE_URL_FOR_FUNCTIONS}/functions/v1/super-handler?key=${encodeURIComponent(fileKey)}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: response.statusText }));
-        throw new Error(`Failed to resolve URL: ${errorData.message || response.statusText}`);
+        const errorText = await response.text();
+        console.error('Response error:', response.status, errorText);
+        throw new Error(`Failed to resolve URL: ${response.status} ${errorText}`);
       }
       
       const data = await response.json();
