@@ -57,7 +57,7 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
 
     const fetchImageUrl = async () => {
       if (!session) {
-        setError("Authentication session not available.");
+        console.log("No session available for image URL resolution.");
         setResolvedSrc(placeholderSrc);
         return;
       }
@@ -75,14 +75,6 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
 
         if (!token) {
           throw new Error("Failed to get authentication token");
-        }
-
-        // Validate token format
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          console.log('Image token payload preview:', { sub: payload.sub, iat: payload.iat, exp: payload.exp });
-        } catch (e) {
-          console.warn('Could not parse image token payload for validation');
         }
 
         console.log('Using RS256 token for R2 signing image request');
@@ -131,6 +123,7 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
       alt={altText}
       className={className}
       onError={(e) => {
+        console.log("Image failed to load, falling back to placeholder");
         (e.target as HTMLImageElement).src = placeholderSrc;
       }}
       {...imgProps}

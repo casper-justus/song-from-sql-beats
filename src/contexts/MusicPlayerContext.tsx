@@ -100,14 +100,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw new Error("Failed to get authentication token");
       }
 
-      // Validate token format
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log('Token payload preview:', { sub: payload.sub, iat: payload.iat, exp: payload.exp });
-      } catch (e) {
-        console.warn('Could not parse token payload for validation');
-      }
-
       console.log('Using RS256 token for R2 signing request');
       const response = await fetch(`https://aws.njahjustus.workers.dev/sign-r2?key=${encodeURIComponent(r2Key)}`, {
         headers: {
