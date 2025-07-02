@@ -69,13 +69,21 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     setIsResolvingUrl(true);
     try {
-      // Get the Clerk JWT token with proper RS256 format for Supabase
+      // Get the Clerk JWT token with RS256 format using the supabase template
       const token = await session.getToken({
         template: 'supabase'
       });
       
       if (!token) {
         throw new Error("Failed to get authentication token");
+      }
+
+      // Validate token format
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        console.log('Token payload preview:', { sub: payload.sub, iat: payload.iat, exp: payload.exp });
+      } catch (e) {
+        console.warn('Could not parse token payload for validation');
       }
 
       console.log('Using RS256 token for super-handler request');
