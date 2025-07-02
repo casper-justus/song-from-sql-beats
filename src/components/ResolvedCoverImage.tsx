@@ -4,6 +4,7 @@ import { useSession } from '@clerk/clerk-react';
 
 interface ResolvedCoverImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   imageKey: string | null | undefined;
+  videoId?: string | null;
   altText: string;
   placeholderSrc?: string;
   className?: string;
@@ -11,6 +12,21 @@ interface ResolvedCoverImageProps extends Omit<React.ImgHTMLAttributes<HTMLImage
 
 // Global cache for resolved URLs to minimize requests
 const globalImageCache = new Map<string, string>();
+
+/**
+ * Gets YouTube thumbnail URL from video ID
+ */
+function getYouTubeThumbnail(videoId: string, quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'high'): string {
+  const qualityOptions = {
+    default: 'default.jpg',
+    medium: 'mqdefault.jpg', 
+    high: 'hqdefault.jpg',
+    standard: 'sddefault.jpg',
+    maxres: 'maxresdefault.jpg'
+  };
+  
+  return `https://img.youtube.com/vi/${videoId}/${qualityOptions[quality]}`;
+}
 
 /**
  * Extracts the R2 object key from a full Cloudflare R2 public URL.
@@ -28,6 +44,7 @@ function extractR2KeyFromUrl(fullR2Url: string): string | null {
 
 const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
   imageKey,
+  videoId,
   altText,
   placeholderSrc = '/placeholder.svg',
   className,
@@ -39,6 +56,14 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
   const { session } = useSession();
 
   useEffect(() => {
+    // Priority: YouTube thumbnail > R2 image > placeholder
+    if (videoId) {
+      // Use YouTube thumbnail to offload traffic
+      const youtubeThumb = getYouTubeThumbnail(videoId, 'high');
+      setResolvedSrc(youtubeThumb);
+      return;
+    }
+
     if (!imageKey) {
       setResolvedSrc(placeholderSrc);
       return;
@@ -103,10 +128,10 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
     };
 
     fetchImageUrl();
-  }, [imageKey, session, placeholderSrc]);
+  }, [imageKey, videoId, session, placeholderSrc]);
 
   const handleImageError = () => {
-    console.log("Image failed to load, using placeholder for:", imageKey);
+    console.log("Image failed to load, using placeholder for:", imageKey || videoId);
     setHasError(true);
     setResolvedSrc(placeholderSrc);
   };

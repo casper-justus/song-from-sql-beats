@@ -41,17 +41,15 @@ const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(und
 const globalMediaCache = new Map<string, string>();
 
 /**
- * Extracts the R2 object key from a full Cloudflare R2 public URL.
+ * Constructs the proper R2 key for music files by adding the 'music/' prefix
  */
-function extractR2KeyFromUrl(fullR2Url: string): string | null {
-  try {
-    const url = new URL(fullR2Url);
-    let path = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
-    return decodeURIComponent(path);
-  } catch (error) {
-    console.error("Failed to parse R2 URL for key extraction:", fullR2Url, error);
-    return null;
+function constructMusicR2Key(storagePath: string): string {
+  // If it already starts with music/, return as is
+  if (storagePath.startsWith('music/')) {
+    return storagePath;
   }
+  // Otherwise, add the music/ prefix
+  return `music/${storagePath}`;
 }
 
 export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -73,7 +71,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const queryClient = useQueryClient();
 
   // Helper function to resolve media URL via Edge Function with proper RS256 token
-  const resolveMediaUrl = useCallback(async (fileKey: string): Promise<string | null> => {
+  const resolveMediaUrl = useCallback(async (fileKey: string, isAudioFile: boolean = false): Promise<string | null> => {
     if (!fileKey) return null;
     
     // Check global cache first
@@ -88,7 +86,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     setIsResolvingUrl(true);
     try {
-      const r2Key = extractR2KeyFromUrl(fileKey) || fileKey;
+      // For audio files, construct the proper R2 key with music/ prefix
+      const r2Key = isAudioFile ? constructMusicR2Key(fileKey) : fileKey;
       
       const token = await session.getToken({
         template: 'supabase'
@@ -304,7 +303,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       setLyrics('Loading lyrics...');
 
       try {
-        const resolvedLyricsUrl = await resolveMediaUrl(lyricsFileKey);
+        const resolvedLyricsUrl = await resolveMediaUrl(lyricsFileKey, false);
         if (resolvedLyricsUrl) {
           const response = await fetch(resolvedLyricsUrl);
           if (!response.ok) {
@@ -352,11 +351,12 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      const currentFileKey = currentSong.file_url;
-      let resolvedSrc = globalMediaCache.get(currentFileKey);
+      // Use storage_path for audio files with music/ prefix
+      const audioFileKey = currentSong.storage_path || currentSong.file_url;
+      let resolvedSrc = globalMediaCache.get(audioFileKey);
 
       if (!resolvedSrc) {
-        resolvedSrc = await resolveMediaUrl(currentFileKey);
+        resolvedSrc = await resolveMediaUrl(audioFileKey, true); // true indicates it's an audio file
       }
 
       if (resolvedSrc) {

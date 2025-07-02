@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
@@ -92,7 +91,7 @@ export default function LibraryPage() {
     };
 
     fetchLikedSongsDetails();
-  }, [user, isReady, supabase, likedSongIds]); // Added likedSongIds dependency
+  }, [user, isReady, supabase, likedSongIds]);
 
   const handlePlaySong = (song: Song) => {
     if (currentSong?.id === song.id && isPlaying) {
@@ -169,6 +168,7 @@ export default function LibraryPage() {
                 <div className="w-12 h-12 rounded object-cover mr-4 flex-shrink-0 bg-gray-700">
                   <ResolvedCoverImage
                     imageKey={song.cover_url}
+                    videoId={song.video_id} // Pass video_id for YouTube thumbnail
                     altText={song.title || 'Song cover'}
                     className="w-full h-full rounded object-cover"
                   />

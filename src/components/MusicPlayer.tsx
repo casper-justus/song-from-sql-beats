@@ -54,7 +54,6 @@ const MusicPlayer = () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-
   // The initial loading/error/no songs states might be better handled on the page level (e.g. Index.tsx)
   // or this component can return null/message if context indicates no songs or loading.
   // For now, we'll keep some basic loading/empty states.
@@ -107,24 +106,19 @@ const MusicPlayer = () => {
     );
   }
 
-
   return (
-    // Removed min-h-screen and background from here, as page (Index.tsx) will handle it
     <div className="w-full">
       <div className="max-w-6xl mx-auto">
-        {/* Title can be removed if page has its own title */}
-        {/* <h1 className="text-4xl font-bold text-white mb-8 text-center">Music Player</h1> */}
-        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Main Player UI Card */}
           <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-6 md:p-8">
             <div className="text-center mb-6">
-              <div className="w-48 h-48 md:w-64 md:h-64 mx-auto mb-6 rounded-lg overflow-hidden shadow-2xl bg-gray-700"> {/* Added bg for placeholder visibility */}
+              <div className="w-48 h-48 md:w-64 md:h-64 mx-auto mb-6 rounded-lg overflow-hidden shadow-2xl bg-gray-700">
                 <ResolvedCoverImage
-                  imageKey={currentSong.cover_url} // This is now a key
+                  imageKey={currentSong.cover_url}
+                  videoId={currentSong.video_id} // Pass video_id for YouTube thumbnail
                   altText={currentSong.title || 'Album cover'}
                   className="w-full h-full object-cover"
-                  // width and height props for ResolvedCoverImage's own placeholder sizing if needed
                 />
               </div>
               
@@ -256,9 +250,10 @@ const MusicPlayer = () => {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-gray-700"> {/* Added bg for placeholder */}
+                    <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-gray-700">
                       <ResolvedCoverImage
                         imageKey={song.cover_url}
+                        videoId={song.video_id} // Pass video_id for YouTube thumbnail
                         altText={song.title || 'Song cover'}
                         className="w-full h-full object-cover"
                       />

@@ -138,9 +138,10 @@ export default function SearchPage() {
                   <CardContent className="p-4">
                     <div className="flex items-center space-x-4">
                       <div className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-                        {song.cover_url ? (
+                        {song.cover_url || song.video_id ? (
                           <ResolvedCoverImage 
                             imageKey={song.cover_url}
+                            videoId={song.video_id} // Pass video_id for YouTube thumbnail
                             altText={`${song.title} cover`}
                             className="w-full h-full object-cover"
                             width={64}
