@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useRef, useEffect, ReactNode, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser, useSession } from '@clerk/clerk-react';
@@ -269,31 +270,54 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const isCurrentSongLiked = currentSong ? likedSongIds.has(currentSong.id) : false;
 
-  // Toggle like song with invalidation
-  const toggleLikeSong = async (songId: string, video_id: string) => {
+  // Fixed toggle like song with proper error handling
+  const toggleLikeSong = async (songId: string, videoId: string) => {
     if (!user || !songId || !supabase) return;
-    const alreadyLiked = likedSongIds.has(songId);
-    if (alreadyLiked) {
-      const { error } = await supabase.from('user_liked_songs').delete().match({ user_id: user.id, song_id: songId });
-      if (error) console.error('Error unliking song:', error);
-      else {
-        setLikedSongIds(prev => { const next = new Set(prev); next.delete(songId); return next; });
-        // Refresh liked songs data
-        queryClient.invalidateQueries({ queryKey: ['likedSongs', user.id] });
-      }
-    } else {
-      const { error } = await supabase.from('user_liked_songs').insert({ 
-        user_id: user.id, 
-        song_id: songId, 
-        video_id: video_id, 
-        liked_at: new Date().toISOString() 
-      });
-      if (error) console.error('Error liking song:', error);
-      else {
+    
+    const isLiked = likedSongIds.has(songId);
+    console.log('Toggling like for song:', songId, 'Currently liked:', isLiked);
+    
+    try {
+      if (isLiked) {
+        const { error } = await supabase
+          .from('user_liked_songs')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('song_id', songId);
+        
+        if (error) {
+          console.error('Error unliking song:', error);
+          throw error;
+        }
+        
+        setLikedSongIds(prev => {
+          const next = new Set(prev);
+          next.delete(songId);
+          return next;
+        });
+        console.log('Song unliked successfully');
+      } else {
+        const { error } = await supabase
+          .from('user_liked_songs')
+          .insert({
+            user_id: user.id,
+            song_id: songId,
+            liked_at: new Date().toISOString()
+          });
+        
+        if (error) {
+          console.error('Error liking song:', error);
+          throw error;
+        }
+        
         setLikedSongIds(prev => new Set(prev).add(songId));
-        // Refresh liked songs data
-        queryClient.invalidateQueries({ queryKey: ['likedSongs', user.id] });
+        console.log('Song liked successfully');
       }
+      
+      // Refresh liked songs data
+      queryClient.invalidateQueries({ queryKey: ['likedSongs', user.id] });
+    } catch (error) {
+      console.error('Error in toggleLikeSong:', error);
     }
   };
 
@@ -423,16 +447,19 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [currentSong, resolveMediaUrl]);
 
-  // Updated selectSong to auto-play
+  // Fixed selectSong function to properly handle different songs
   const selectSong = useCallback(async (song: Song) => {
-    console.log('Selecting song:', song.title);
-    setCurrentSong(song);
-    setIsPlaying(false);
+    console.log('Selecting song:', song.title, 'ID:', song.id);
+    
+    // Stop current audio and reset
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setCurrentTime(0);
     }
+    
+    setIsPlaying(false);
+    setCurrentSong(song);
 
     // Preload next song
     const currentIndex = songs.findIndex(s => s.id === song.id);
@@ -440,12 +467,42 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       preloadNextSong(songs[currentIndex + 1]);
     }
 
-    // Auto-play the selected song
-    setTimeout(() => {
-      console.log('Auto-playing selected song');
-      togglePlay();
-    }, 100);
-  }, [songs, preloadNextSong]);
+    // Auto-play the selected song after a short delay
+    setTimeout(async () => {
+      console.log('Auto-playing selected song:', song.title);
+      if (audioRef.current && currentSong?.id === song.id) {
+        const audioFileKey = song.storage_path || song.file_url;
+        
+        // Check preload cache first
+        let resolvedSrc = preloadCache.get(song.id);
+        
+        if (!resolvedSrc) {
+          // Check main cache
+          const cached = globalMediaCache.get(audioFileKey);
+          if (cached && Date.now() < cached.expires) {
+            resolvedSrc = cached.url;
+          }
+        }
+
+        if (!resolvedSrc) {
+          setIsResolvingUrl(true);
+          resolvedSrc = await resolveMediaUrl(audioFileKey, true);
+          setIsResolvingUrl(false);
+        }
+
+        if (resolvedSrc && audioRef.current) {
+          try {
+            audioRef.current.src = resolvedSrc;
+            await audioRef.current.play();
+            setIsPlaying(true);
+          } catch (error) {
+            console.error('Error auto-playing song:', error);
+            setIsPlaying(false);
+          }
+        }
+      }
+    }, 200);
+  }, [songs, preloadNextSong, resolveMediaUrl, currentSong]);
 
   // Auto-select first song or restore last played song
   useEffect(() => {
@@ -512,22 +569,24 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [isPlaying, currentSong, resolveMediaUrl, isResolvingUrl]);
 
-  // Updated playNext to auto-play
+  // Fixed playNext to select the correct next song
   const playNext = useCallback(() => {
-    if (!currentSong || songs.length === 0 || isResolvingUrl) return;
+    if (!currentSong || songs.length === 0) return;
     const currentIndex = songs.findIndex(s => s.id === currentSong.id);
     const nextIndex = (currentIndex + 1) % songs.length;
-    console.log('Playing next song:', songs[nextIndex].title);
-    selectSong(songs[nextIndex]);
-  }, [currentSong, songs, selectSong, isResolvingUrl]);
+    const nextSong = songs[nextIndex];
+    console.log('Playing next song:', nextSong.title, 'Current index:', currentIndex, 'Next index:', nextIndex);
+    selectSong(nextSong);
+  }, [currentSong, songs, selectSong]);
 
-  // Updated playPrevious to auto-play
+  // Fixed playPrevious to select the correct previous song
   const playPrevious = useCallback(() => {
     if (!currentSong || songs.length === 0) return;
     const currentIndex = songs.findIndex(s => s.id === currentSong.id);
     const prevIndex = (currentIndex - 1 + songs.length) % songs.length;
-    console.log('Playing previous song:', songs[prevIndex].title);
-    selectSong(songs[prevIndex]);
+    const prevSong = songs[prevIndex];
+    console.log('Playing previous song:', prevSong.title, 'Current index:', currentIndex, 'Prev index:', prevIndex);
+    selectSong(prevSong);
   }, [currentSong, songs, selectSong]);
 
   const seek = useCallback((time: number) => {

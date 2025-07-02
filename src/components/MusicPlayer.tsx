@@ -1,13 +1,15 @@
-import React from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, FileText, Heart } from 'lucide-react'; // Added Heart
+
+import React, { useState } from 'react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, FileText, Heart, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils'; // For conditional styling of Heart icon
+import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Tables } from '@/integrations/supabase/types';
-import ResolvedCoverImage from './ResolvedCoverImage'; // Import ResolvedCoverImage
+import ResolvedCoverImage from './ResolvedCoverImage';
 
 type Song = Tables<'songs'>;
 
@@ -18,12 +20,13 @@ const MusicPlayer = () => {
     isPlaying,
     currentTime,
     duration,
-    volume, // This is 0-100 from context
+    volume,
     isLoadingSongs,
     lyrics,
     showLyricsDialog,
-    isCurrentSongLiked, // Get like status
-    toggleLikeSong,     // Get toggle function
+    isCurrentSongLiked,
+    playlists,
+    toggleLikeSong,
     togglePlay,
     playNext,
     playPrevious,
@@ -31,11 +34,14 @@ const MusicPlayer = () => {
     seek,
     setVolumeLevel,
     setShowLyricsDialog,
+    addSongToPlaylist,
   } = useMusicPlayer();
+
+  const [selectedSongForPlaylist, setSelectedSongForPlaylist] = useState<Song | null>(null);
 
   const handleLikeClick = () => {
     if (currentSong) {
-      toggleLikeSong(currentSong.id, currentSong.video_id);
+      toggleLikeSong(currentSong.id, currentSong.video_id || '');
     }
   };
 
@@ -47,16 +53,17 @@ const MusicPlayer = () => {
     setVolumeLevel(value[0]);
   };
 
+  const handleAddSongToPlaylist = async (playlistId: string, song: Song) => {
+    await addSongToPlaylist(playlistId, song.id);
+    setSelectedSongForPlaylist(null);
+  };
+
   const formatTime = (time: number) => {
     if (isNaN(time) || time === Infinity) return '0:00';
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
-
-  // The initial loading/error/no songs states might be better handled on the page level (e.g. Index.tsx)
-  // or this component can return null/message if context indicates no songs or loading.
-  // For now, we'll keep some basic loading/empty states.
 
   if (isLoadingSongs) {
     return (
@@ -66,9 +73,6 @@ const MusicPlayer = () => {
     );
   }
 
-  // If there's no current song selected yet, but songs are loaded,
-  // it might mean the context's auto-selection hasn't picked one or there are no songs.
-  // The BottomNavbar will show "No music selected". This full player could show a similar message or list.
   if (songs.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -81,8 +85,6 @@ const MusicPlayer = () => {
   }
 
   if (!currentSong && songs.length > 0) {
-    // This case should ideally be handled by the context auto-selecting the first song.
-    // If not, we can prompt user to select a song from the list.
      return (
       <div className="flex items-center justify-center p-8">
         <div className="text-white text-center">
@@ -93,8 +95,6 @@ const MusicPlayer = () => {
     );
   }
 
-  // If there's still no currentSong after all checks (e.g. songs list is empty and remains empty)
-  // This is a fallback, though the previous `songs.length === 0` check should catch it.
   if (!currentSong) {
     return (
          <div className="flex items-center justify-center p-8">
@@ -116,7 +116,7 @@ const MusicPlayer = () => {
               <div className="w-48 h-48 md:w-64 md:h-64 mx-auto mb-6 rounded-lg overflow-hidden shadow-2xl bg-gray-700">
                 <ResolvedCoverImage
                   imageKey={currentSong.cover_url}
-                  videoId={currentSong.video_id} // Pass video_id for YouTube thumbnail
+                  videoId={currentSong.video_id}
                   altText={currentSong.title || 'Album cover'}
                   className="w-full h-full object-cover"
                 />
@@ -136,9 +136,9 @@ const MusicPlayer = () => {
             <div className="mb-6">
               <Slider
                 value={[currentTime]}
-                max={duration || 100} // Ensure max is not 0
+                max={duration || 100}
                 step={1}
-                onValueChange={handleSeek} // Use the updated handler
+                onValueChange={handleSeek}
                 className="w-full"
                 disabled={!currentSong || duration === 0}
               />
@@ -191,7 +191,7 @@ const MusicPlayer = () => {
                 onClick={handleLikeClick}
                 className={cn(
                   "text-white hover:bg-white/20",
-                  isCurrentSongLiked && "text-spotifyGreen" // Or your chosen liked color
+                  isCurrentSongLiked && "text-red-500"
                 )}
                 disabled={!currentSong}
               >
@@ -225,53 +225,92 @@ const MusicPlayer = () => {
             <div className="flex items-center gap-3">
               <Volume2 className="h-5 w-5 text-white" />
               <Slider
-                value={[volume]} // Use volume from context (0-100)
+                value={[volume]}
                 max={100}
                 step={1}
-                onValueChange={handleVolumeChange} // Use the updated handler
+                onValueChange={handleVolumeChange}
                 className="flex-1"
                 disabled={!currentSong}
               />
               <span className="text-white text-sm w-10">{Math.round(volume)}%</span>
             </div>
-            {/* Audio element is now managed by MusicPlayerContext */}
           </Card>
 
           {/* Song List */}
           <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-6">
             <h3 className="text-xl font-bold text-white mb-4">Your Library ({songs.length} songs)</h3>
-            <div className="space-y-2 max-h-[60vh] overflow-y-auto"> {/* Adjusted max height */}
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto">
               {songs.map((song) => (
                 <div
                   key={song.id}
-                  onClick={() => selectSong(song)}
-                  className={`p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/10 ${
+                  className={`p-3 rounded-lg transition-all duration-200 hover:bg-white/10 group ${
                     currentSong?.id === song.id ? 'bg-white/20' : ''
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-gray-700">
+                    <div 
+                      className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-gray-700 cursor-pointer"
+                      onClick={() => selectSong(song)}
+                    >
                       <ResolvedCoverImage
                         imageKey={song.cover_url}
-                        videoId={song.video_id} // Pass video_id for YouTube thumbnail
+                        videoId={song.video_id}
                         altText={song.title || 'Song cover'}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium truncate">{song.title || "Unknown Title"}</p>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => selectSong(song)}>
+                      <p className={`font-medium truncate ${currentSong?.id === song.id ? 'text-green-500' : 'text-white'}`}>
+                        {song.title || "Unknown Title"}
+                      </p>
                       <p className="text-gray-400 text-sm truncate">{song.artist}</p>
                       {song.album && (
                         <p className="text-gray-500 text-xs truncate">{song.album}</p>
                       )}
                     </div>
-                    <div className="text-right">
-                      {song.year && (
-                        <span className="text-gray-400 text-sm">{song.year}</span>
-                      )}
-                      {song.genre && (
-                        <p className="text-gray-500 text-xs">{song.genre}</p>
-                      )}
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Add to Playlist Button */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-white hover:bg-white/20 w-8 h-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedSongForPlaylist(song);
+                            }}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="bg-gray-800 border-gray-700">
+                          {playlists.length > 0 ? (
+                            playlists.map((playlist) => (
+                              <DropdownMenuItem
+                                key={playlist.id}
+                                onClick={() => handleAddSongToPlaylist(playlist.id, song)}
+                                className="text-white hover:bg-gray-700"
+                              >
+                                {playlist.name}
+                              </DropdownMenuItem>
+                            ))
+                          ) : (
+                            <DropdownMenuItem disabled className="text-gray-400">
+                              No playlists available
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      
+                      <div className="text-right">
+                        {song.year && (
+                          <span className="text-gray-400 text-sm">{song.year}</span>
+                        )}
+                        {song.genre && (
+                          <p className="text-gray-500 text-xs">{song.genre}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

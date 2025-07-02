@@ -21,7 +21,7 @@ export function BottomNavbar() {
 
   const handleLikeClick = () => {
     if (currentSong) {
-      toggleLikeSong(currentSong.id, currentSong.video_id);
+      toggleLikeSong(currentSong.id, currentSong.video_id || '');
     }
   };
 
@@ -83,11 +83,11 @@ export function BottomNavbar() {
         </Button>
       </div>
 
-      {/* Progress Bar - Fixed to stay within bounds */}
-      <div className="absolute bottom-0 left-4 right-4 h-1 bg-black/10 rounded-full overflow-hidden">
+      {/* Progress Bar - Fixed positioning and overflow */}
+      <div className="absolute bottom-1 left-6 right-6 h-1 bg-black/10 rounded-full">
         <div
           className="h-full bg-gray-800 transition-all duration-300 rounded-full"
-          style={{ width: `${progressPercentage}%` }}
+          style={{ width: `${Math.min(progressPercentage, 100)}%` }}
         />
       </div>
     </div>
