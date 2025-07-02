@@ -38,7 +38,7 @@ export function BottomNavbar() {
 
   return (
     <div
-      className="fixed bottom-24 left-1/2 -translate-x-1/2 w-11/12 max-w-2xl h-20 rounded-full shadow-2xl flex items-center justify-between px-4 md:px-6 space-x-3 z-50 backdrop-blur-lg border border-white/20"
+      className="fixed bottom-24 left-1/2 -translate-x-1/2 w-11/12 max-w-2xl h-20 rounded-full shadow-2xl flex items-center justify-between px-4 md:px-6 space-x-3 z-50 backdrop-blur-lg border border-white/20 relative overflow-hidden"
       style={{ backgroundColor: '#F9C901' }}
     >
       {/* Album Art & Info */}
@@ -83,8 +83,8 @@ export function BottomNavbar() {
         </Button>
       </div>
 
-      {/* Progress Bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/10 rounded-full overflow-hidden">
+      {/* Progress Bar - Fixed to stay within bounds */}
+      <div className="absolute bottom-0 left-4 right-4 h-1 bg-black/10 rounded-full overflow-hidden">
         <div
           className="h-full bg-gray-800 transition-all duration-300 rounded-full"
           style={{ width: `${progressPercentage}%` }}

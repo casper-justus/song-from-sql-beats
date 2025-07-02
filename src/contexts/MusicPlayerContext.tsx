@@ -269,14 +269,18 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const isCurrentSongLiked = currentSong ? likedSongIds.has(currentSong.id) : false;
 
-  // Toggle like song
+  // Toggle like song with invalidation
   const toggleLikeSong = async (songId: string, video_id: string) => {
     if (!user || !songId || !supabase) return;
     const alreadyLiked = likedSongIds.has(songId);
     if (alreadyLiked) {
       const { error } = await supabase.from('user_liked_songs').delete().match({ user_id: user.id, song_id: songId });
       if (error) console.error('Error unliking song:', error);
-      else setLikedSongIds(prev => { const next = new Set(prev); next.delete(songId); return next; });
+      else {
+        setLikedSongIds(prev => { const next = new Set(prev); next.delete(songId); return next; });
+        // Refresh liked songs data
+        queryClient.invalidateQueries({ queryKey: ['likedSongs', user.id] });
+      }
     } else {
       const { error } = await supabase.from('user_liked_songs').insert({ 
         user_id: user.id, 
@@ -285,7 +289,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         liked_at: new Date().toISOString() 
       });
       if (error) console.error('Error liking song:', error);
-      else setLikedSongIds(prev => new Set(prev).add(songId));
+      else {
+        setLikedSongIds(prev => new Set(prev).add(songId));
+        // Refresh liked songs data
+        queryClient.invalidateQueries({ queryKey: ['likedSongs', user.id] });
+      }
     }
   };
 
@@ -312,6 +320,9 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     });
     if (error) {
       console.error('Error adding song to playlist:', error);
+    } else {
+      // Invalidate playlist queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['playlistSongs', playlistId] });
     }
   };
 
@@ -322,6 +333,9 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       .match({ playlist_id: playlistId, song_id: songId });
     if (error) {
       console.error('Error removing song from playlist:', error);
+    } else {
+      // Invalidate playlist queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['playlistSongs', playlistId] });
     }
   };
 
@@ -409,7 +423,9 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [currentSong, resolveMediaUrl]);
 
+  // Updated selectSong to auto-play
   const selectSong = useCallback(async (song: Song) => {
+    console.log('Selecting song:', song.title);
     setCurrentSong(song);
     setIsPlaying(false);
     if (audioRef.current) {
@@ -423,6 +439,12 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (currentIndex !== -1 && currentIndex < songs.length - 1) {
       preloadNextSong(songs[currentIndex + 1]);
     }
+
+    // Auto-play the selected song
+    setTimeout(() => {
+      console.log('Auto-playing selected song');
+      togglePlay();
+    }, 100);
   }, [songs, preloadNextSong]);
 
   // Auto-select first song or restore last played song
@@ -432,8 +454,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (savedState && savedState.lastSongId) {
         const lastSong = songs.find(s => s.id === savedState.lastSongId);
         if (lastSong) {
-          selectSong(lastSong);
-          // Restore progress after a short delay
+          setCurrentSong(lastSong);
           setTimeout(() => {
             if (audioRef.current && savedState.lastProgress > 0) {
               audioRef.current.currentTime = savedState.lastProgress;
@@ -443,9 +464,9 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
           return;
         }
       }
-      selectSong(songs[0]);
+      setCurrentSong(songs[0]);
     }
-  }, [songs, currentSong, selectSong, isLoadingSongs]);
+  }, [songs, currentSong, isLoadingSongs]);
 
   const togglePlay = useCallback(async () => {
     if (!audioRef.current || !currentSong || isResolvingUrl) return;
@@ -491,17 +512,21 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [isPlaying, currentSong, resolveMediaUrl, isResolvingUrl]);
 
+  // Updated playNext to auto-play
   const playNext = useCallback(() => {
     if (!currentSong || songs.length === 0 || isResolvingUrl) return;
     const currentIndex = songs.findIndex(s => s.id === currentSong.id);
     const nextIndex = (currentIndex + 1) % songs.length;
+    console.log('Playing next song:', songs[nextIndex].title);
     selectSong(songs[nextIndex]);
   }, [currentSong, songs, selectSong, isResolvingUrl]);
 
+  // Updated playPrevious to auto-play
   const playPrevious = useCallback(() => {
     if (!currentSong || songs.length === 0) return;
     const currentIndex = songs.findIndex(s => s.id === currentSong.id);
     const prevIndex = (currentIndex - 1 + songs.length) % songs.length;
+    console.log('Playing previous song:', songs[prevIndex].title);
     selectSong(songs[prevIndex]);
   }, [currentSong, songs, selectSong]);
 

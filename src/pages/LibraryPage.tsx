@@ -73,7 +73,6 @@ export default function LibraryPage() {
             return;
           }
           
-          // Maintain the order from liked_songs query
           const orderedSongs = likedEntries
             .map(entry => songsData?.find(song => song.id === entry.song_id))
             .filter(Boolean) as Song[];
@@ -96,9 +95,8 @@ export default function LibraryPage() {
   const handlePlaySong = (song: Song) => {
     if (currentSong?.id === song.id && isPlaying) {
       togglePlay();
-    } else if (currentSong?.id === song.id && !isPlaying) {
-      togglePlay();
     } else {
+      // This will now auto-play due to the updated selectSong function
       selectSong(song);
     }
   };
@@ -168,7 +166,7 @@ export default function LibraryPage() {
                 <div className="w-12 h-12 rounded object-cover mr-4 flex-shrink-0 bg-gray-700">
                   <ResolvedCoverImage
                     imageKey={song.cover_url}
-                    videoId={song.video_id} // Pass video_id for YouTube thumbnail
+                    videoId={song.video_id}
                     altText={song.title || 'Song cover'}
                     className="w-full h-full rounded object-cover"
                   />
