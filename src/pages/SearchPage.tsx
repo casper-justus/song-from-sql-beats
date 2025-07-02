@@ -7,6 +7,7 @@ import { Search, Play, Music } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { useToast } from '@/hooks/use-toast';
+import { ResolvedCoverImage } from '@/components/ResolvedCoverImage';
 
 interface Song {
   id: string;
@@ -44,11 +45,23 @@ export default function SearchPage() {
       setLoading(true);
       console.log('Searching for:', query);
 
-      const { data, error } = await supabase
+      // Check if query is a number for year search
+      const yearQuery = parseInt(query);
+      const isValidYear = !isNaN(yearQuery) && yearQuery > 1900 && yearQuery < 2100;
+
+      let supabaseQuery = supabase
         .from('songs')
-        .select('*')
-        .or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%,video_id.ilike.%${query}%,year.eq.${parseInt(query) || 0}`)
-        .limit(20);
+        .select('*');
+
+      if (isValidYear) {
+        // If it's a valid year, search in all fields including year
+        supabaseQuery = supabaseQuery.or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%,video_id.ilike.%${query}%,year.eq.${yearQuery}`);
+      } else {
+        // Search in text fields only
+        supabaseQuery = supabaseQuery.or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%,video_id.ilike.%${query}%`);
+      }
+
+      const { data, error } = await supabaseQuery.limit(20);
 
       if (error) {
         console.error('Search error:', error);
@@ -92,7 +105,7 @@ export default function SearchPage() {
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white max-w-4xl">
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-bold mb-2">Search Music</h1>
-          <p className="text-lg text-gray-400">Find your favorite songs</p>
+          <p className="text-lg text-gray-400">Find your favorite songs by title, artist, album, or year</p>
         </header>
 
         {/* Search Input */}
@@ -127,10 +140,12 @@ export default function SearchPage() {
                     <div className="flex items-center space-x-4">
                       <div className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
                         {song.cover_url ? (
-                          <img 
-                            src={song.cover_url} 
-                            alt={`${song.title} cover`}
+                          <ResolvedCoverImage 
+                            imageKey={song.cover_url}
+                            altText={`${song.title} cover`}
                             className="w-full h-full object-cover"
+                            width={64}
+                            height={64}
                           />
                         ) : (
                           <Music className="w-8 h-8 text-gray-400" />
