@@ -115,9 +115,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
       
       const data = await response.json();
-      if (data && data.url) {
-        setResolvedUrlCache(prev => ({ ...prev, [fileKey]: data.url }));
-        return data.url;
+      // CORRECTED LINE: Changed 'data.url' to 'data.signedUrl'
+      if (data && data.signedUrl) { 
+        setResolvedUrlCache(prev => ({ ...prev, [fileKey]: data.signedUrl }));
+        return data.signedUrl;
       }
       throw new Error("Resolved URL not found in function response.");
     } catch (error) {

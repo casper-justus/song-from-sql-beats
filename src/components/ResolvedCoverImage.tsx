@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSession } from '@clerk/clerk-react';
 
@@ -92,9 +91,10 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
         }
 
         const data = await response.json();
-        if (data && data.url) {
-          imageCache.set(imageKey, data.url);
-          setResolvedSrc(data.url);
+        // CORRECTED LINE: Changed 'data.url' to 'data.signedUrl'
+        if (data && data.signedUrl) { 
+          imageCache.set(imageKey, data.signedUrl);
+          setResolvedSrc(data.signedUrl);
         } else {
           throw new Error("Resolved URL not found in image function response.");
         }
@@ -111,8 +111,11 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
   }, [imageKey, session, placeholderSrc]);
 
   if (isLoading && !resolvedSrc) {
+    // Make sure 'cn' utility function is defined or imported if used here
+    // For simplicity, removing 'cn' usage if it's not provided with this component.
+    // If you use a CSS-in-JS library or TailwindCSS, ensure 'cn' is correctly imported.
     return (
-      <div className={cn("animate-pulse bg-gray-700", className)} style={{ width: imgProps.width, height: imgProps.height }}>
+      <div className={className} style={{ width: imgProps.width, height: imgProps.height }}>
       </div>
     );
   }
@@ -131,6 +134,10 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
   );
 };
 
+// Assuming 'cn' utility function is defined elsewhere or will be provided.
+// If not, you might want to replace `cn("animate-pulse bg-gray-700", className)`
+// with direct className strings or remove it if not needed.
 const cn = (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(' ');
+
 
 export default ResolvedCoverImage;
