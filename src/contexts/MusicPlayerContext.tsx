@@ -37,19 +37,63 @@ interface MusicPlayerContextType {
 
 const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(undefined);
 
-// Global cache for resolved media URLs to minimize requests
-const globalMediaCache = new Map<string, string>();
+// Enhanced global cache for resolved media URLs with expiration
+const globalMediaCache = new Map<string, { url: string; expires: number }>();
+const CACHE_DURATION = 45 * 60 * 1000; // 45 minutes (R2 signed URLs are valid for 1 hour)
+
+// Preload cache for next songs
+const preloadCache = new Map<string, string>();
 
 /**
  * Constructs the proper R2 key for music files by adding the 'music/' prefix
  */
 function constructMusicR2Key(storagePath: string): string {
-  // If it already starts with music/, return as is
   if (storagePath.startsWith('music/')) {
     return storagePath;
   }
-  // Otherwise, add the music/ prefix
   return `music/${storagePath}`;
+}
+
+/**
+ * Save player state to localStorage
+ */
+function savePlayerState(songId: string, currentTime: number, volume: number) {
+  try {
+    localStorage.setItem('musicPlayer_state', JSON.stringify({
+      lastSongId: songId,
+      lastProgress: currentTime,
+      lastVolume: volume,
+      timestamp: Date.now()
+    }));
+  } catch (error) {
+    console.error('Failed to save player state:', error);
+  }
+}
+
+/**
+ * Load player state from localStorage
+ */
+function loadPlayerState(): { lastSongId: string | null; lastProgress: number; lastVolume: number } | null {
+  try {
+    const saved = localStorage.getItem('musicPlayer_state');
+    if (!saved) return null;
+    
+    const state = JSON.parse(saved);
+    // Only restore if saved within last 24 hours
+    if (Date.now() - state.timestamp > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem('musicPlayer_state');
+      return null;
+    }
+    
+    return {
+      lastSongId: state.lastSongId,
+      lastProgress: state.lastProgress || 0,
+      lastVolume: state.lastVolume || 0.75
+    };
+  } catch (error) {
+    console.error('Failed to load player state:', error);
+    return null;
+  }
 }
 
 export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -70,13 +114,33 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [isResolvingUrl, setIsResolvingUrl] = useState(false);
   const queryClient = useQueryClient();
 
-  // Helper function to resolve media URL via Edge Function with proper RS256 token
+  // Load saved state on mount
+  useEffect(() => {
+    const savedState = loadPlayerState();
+    if (savedState) {
+      setVolumeState(savedState.lastVolume);
+    }
+  }, []);
+
+  // Save state periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (currentSong && currentTime > 0) {
+        savePlayerState(currentSong.id, currentTime, volume);
+      }
+    }, 10000); // Save every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [currentSong, currentTime, volume]);
+
+  // Enhanced URL resolution with better caching
   const resolveMediaUrl = useCallback(async (fileKey: string, isAudioFile: boolean = false): Promise<string | null> => {
     if (!fileKey) return null;
     
-    // Check global cache first
-    if (globalMediaCache.has(fileKey)) {
-      return globalMediaCache.get(fileKey)!;
+    // Check cache first
+    const cached = globalMediaCache.get(fileKey);
+    if (cached && Date.now() < cached.expires) {
+      return cached.url;
     }
     
     if (!session) {
@@ -84,9 +148,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       return null;
     }
 
-    setIsResolvingUrl(true);
     try {
-      // For audio files, construct the proper R2 key with music/ prefix
       const r2Key = isAudioFile ? constructMusicR2Key(fileKey) : fileKey;
       
       const token = await session.getToken({
@@ -112,18 +174,38 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       
       const data = await response.json();
       if (data && data.signedUrl) {
-        // Cache globally to reduce requests
-        globalMediaCache.set(fileKey, data.signedUrl);
+        // Cache with expiration
+        globalMediaCache.set(fileKey, {
+          url: data.signedUrl,
+          expires: Date.now() + CACHE_DURATION
+        });
         return data.signedUrl;
       }
       throw new Error("Resolved URL not found in function response.");
     } catch (error) {
       console.error("resolveMediaUrl error:", error);
       return null;
-    } finally {
-      setIsResolvingUrl(false);
     }
   }, [session]);
+
+  // Preload next song's audio URL
+  const preloadNextSong = useCallback(async (song: Song) => {
+    if (!song || preloadCache.has(song.id)) return;
+    
+    try {
+      const audioFileKey = song.storage_path || song.file_url;
+      const resolvedUrl = await resolveMediaUrl(audioFileKey, true);
+      if (resolvedUrl) {
+        preloadCache.set(song.id, resolvedUrl);
+        // Preload the audio
+        const audio = new Audio();
+        audio.preload = 'metadata';
+        audio.src = resolvedUrl;
+      }
+    } catch (error) {
+      console.error('Error preloading song:', error);
+    }
+  }, [resolveMediaUrl]);
 
   // Fetch songs with better error handling
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
@@ -291,7 +373,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [volume]);
 
-  // Lyrics fetching with better caching
+  // Enhanced lyrics fetching
   useEffect(() => {
     const fetchLyricsContent = async () => {
       if (!currentSong || !currentSong.lyrics_url) {
@@ -310,7 +392,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
             throw new Error(`Failed to fetch lyrics content: ${response.statusText}`);
           }
           const text = await response.text();
-          setLyrics(text);
+          setLyrics(text || 'No lyrics content found.');
         } else {
           throw new Error("Could not resolve lyrics URL.");
         }
@@ -335,11 +417,32 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       audioRef.current.currentTime = 0;
       setCurrentTime(0);
     }
-  }, []);
 
-  // Auto-select first song
+    // Preload next song
+    const currentIndex = songs.findIndex(s => s.id === song.id);
+    if (currentIndex !== -1 && currentIndex < songs.length - 1) {
+      preloadNextSong(songs[currentIndex + 1]);
+    }
+  }, [songs, preloadNextSong]);
+
+  // Auto-select first song or restore last played song
   useEffect(() => {
     if (!currentSong && songs.length > 0 && !isLoadingSongs) {
+      const savedState = loadPlayerState();
+      if (savedState && savedState.lastSongId) {
+        const lastSong = songs.find(s => s.id === savedState.lastSongId);
+        if (lastSong) {
+          selectSong(lastSong);
+          // Restore progress after a short delay
+          setTimeout(() => {
+            if (audioRef.current && savedState.lastProgress > 0) {
+              audioRef.current.currentTime = savedState.lastProgress;
+              setCurrentTime(savedState.lastProgress);
+            }
+          }, 500);
+          return;
+        }
+      }
       selectSong(songs[0]);
     }
   }, [songs, currentSong, selectSong, isLoadingSongs]);
@@ -351,12 +454,23 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      // Use storage_path for audio files with music/ prefix
       const audioFileKey = currentSong.storage_path || currentSong.file_url;
-      let resolvedSrc = globalMediaCache.get(audioFileKey);
+      
+      // Check preload cache first
+      let resolvedSrc = preloadCache.get(currentSong.id);
+      
+      if (!resolvedSrc) {
+        // Check main cache
+        const cached = globalMediaCache.get(audioFileKey);
+        if (cached && Date.now() < cached.expires) {
+          resolvedSrc = cached.url;
+        }
+      }
 
       if (!resolvedSrc) {
-        resolvedSrc = await resolveMediaUrl(audioFileKey, true); // true indicates it's an audio file
+        setIsResolvingUrl(true);
+        resolvedSrc = await resolveMediaUrl(audioFileKey, true);
+        setIsResolvingUrl(false);
       }
 
       if (resolvedSrc) {

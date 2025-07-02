@@ -45,6 +45,7 @@ export function BottomNavbar() {
       <div className="flex items-center space-x-3 flex-shrink min-w-0">
         <ResolvedCoverImage
           imageKey={currentSong.cover_url}
+          videoId={currentSong.video_id}
           altText={currentSong.title || 'Album cover'}
           className="w-12 h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-white/30 shadow-lg"
         />
