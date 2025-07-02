@@ -1,6 +1,5 @@
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { Tables } from '@/integrations/supabase/types';
@@ -16,8 +15,6 @@ import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
-
-const spotifyGreen = "#1DB954";
 
 export default function LibraryPage() {
   const { user } = useUser();
@@ -60,7 +57,8 @@ export default function LibraryPage() {
 
         if (likedError) {
           console.error('Error fetching liked songs:', likedError);
-          throw likedError;
+          setLikedSongsDetails([]);
+          return;
         }
 
         if (likedEntries && likedEntries.length > 0) {
@@ -72,9 +70,16 @@ export default function LibraryPage() {
 
           if (songsError) {
             console.error('Error fetching songs data:', songsError);
-            throw songsError;
+            setLikedSongsDetails([]);
+            return;
           }
-          setLikedSongsDetails(songsData || []);
+          
+          // Maintain the order from liked_songs query
+          const orderedSongs = likedEntries
+            .map(entry => songsData?.find(song => song.id === entry.song_id))
+            .filter(Boolean) as Song[];
+          
+          setLikedSongsDetails(orderedSongs);
         } else {
           setLikedSongsDetails([]);
         }
@@ -87,7 +92,7 @@ export default function LibraryPage() {
     };
 
     fetchLikedSongsDetails();
-  }, [user, isReady, supabase]);
+  }, [user, isReady, supabase, likedSongIds]); // Added likedSongIds dependency
 
   const handlePlaySong = (song: Song) => {
     if (currentSong?.id === song.id && isPlaying) {
@@ -99,23 +104,31 @@ export default function LibraryPage() {
     }
   };
 
-  const handleToggleLike = (song: Song) => {
-    toggleLikeSong(song.id, song.video_id || '');
+  const handleToggleLike = async (song: Song) => {
+    await toggleLikeSong(song.id, song.video_id || '');
   };
 
   const handleCreatePlaylist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlaylistName.trim()) return;
     
-    await createPlaylist(newPlaylistName, newPlaylistDescription);
-    setNewPlaylistName('');
-    setNewPlaylistDescription('');
-    setShowCreatePlaylist(false);
+    try {
+      await createPlaylist(newPlaylistName, newPlaylistDescription);
+      setNewPlaylistName('');
+      setNewPlaylistDescription('');
+      setShowCreatePlaylist(false);
+    } catch (error) {
+      console.error('Error creating playlist:', error);
+    }
   };
 
   const handleDeletePlaylist = async (playlistId: string) => {
     if (confirm('Are you sure you want to delete this playlist?')) {
-      await deletePlaylist(playlistId);
+      try {
+        await deletePlaylist(playlistId);
+      } catch (error) {
+        console.error('Error deleting playlist:', error);
+      }
     }
   };
 
@@ -142,7 +155,9 @@ export default function LibraryPage() {
       <section className="mb-12">
         <h2 className="text-3xl font-semibold mb-6 border-b border-gray-700 pb-3">Liked Songs</h2>
         {isLoading || !isReady ? (
-          <p className="text-gray-300">Loading your liked songs...</p>
+          <div className="flex items-center justify-center p-8">
+            <div className="text-gray-300">Loading your liked songs...</div>
+          </div>
         ) : likedSongsDetails.length > 0 ? (
           <div className="space-y-3">
             {likedSongsDetails.map((song, index) => (
