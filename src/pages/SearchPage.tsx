@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,7 +6,7 @@ import { Search, Play, Music } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { useToast } from '@/hooks/use-toast';
-import { ResolvedCoverImage } from '@/components/ResolvedCoverImage';
+import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 
 interface Song {
   id: string;
