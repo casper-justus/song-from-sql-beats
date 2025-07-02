@@ -46,6 +46,7 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
       setIsLoading(true);
       setError(null);
       try {
+        // Get the Clerk JWT token with proper RS256 format for Supabase
         const token = await session.getToken({
           template: 'supabase'
         });
@@ -54,15 +55,18 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
           throw new Error("Failed to get authentication token");
         }
 
+        console.log('Using RS256 token for super-handler image request');
         const response = await fetch(`${SUPABASE_URL_FOR_FUNCTIONS}/functions/v1/super-handler?key=${encodeURIComponent(imageKey)}`, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
         });
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: response.statusText }));
-          throw new Error(`Failed to resolve image URL: ${errorData.message || response.statusText}`);
+          const errorText = await response.text();
+          console.error('Image fetch error:', response.status, errorText);
+          throw new Error(`Failed to resolve image URL: ${response.status} ${errorText}`);
         }
 
         const data = await response.json();

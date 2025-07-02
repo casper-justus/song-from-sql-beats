@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useClerkAuth } from '@/contexts/ClerkContext';
+import { useUser } from '@clerk/clerk-react';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
@@ -19,7 +20,7 @@ type Playlist = Tables<'playlists'>;
 const spotifyGreen = "#1DB954";
 
 export default function LibraryPage() {
-  const { user } = useClerkAuth();
+  const { user } = useUser();
   const { supabase, isReady } = useClerkSupabase();
   const { 
     selectSong, 
@@ -46,6 +47,7 @@ export default function LibraryPage() {
         setLikedSongsDetails([]);
         return;
       }
+      
       setIsLoading(true);
       try {
         console.log('Fetching liked songs for user:', user.id);
@@ -56,7 +58,10 @@ export default function LibraryPage() {
           .eq('user_id', user.id)
           .order('liked_at', { ascending: false });
 
-        if (likedError) throw likedError;
+        if (likedError) {
+          console.error('Error fetching liked songs:', likedError);
+          throw likedError;
+        }
 
         if (likedEntries && likedEntries.length > 0) {
           const songIdsToFetch = likedEntries.map(entry => entry.song_id);
@@ -65,7 +70,10 @@ export default function LibraryPage() {
             .select('*')
             .in('id', songIdsToFetch);
 
-          if (songsError) throw songsError;
+          if (songsError) {
+            console.error('Error fetching songs data:', songsError);
+            throw songsError;
+          }
           setLikedSongsDetails(songsData || []);
         } else {
           setLikedSongsDetails([]);
@@ -110,6 +118,17 @@ export default function LibraryPage() {
       await deletePlaylist(playlistId);
     }
   };
+
+  if (!user) {
+    return (
+      <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold mb-4">Please Login</h1>
+          <p className="text-lg text-gray-400">You need to be logged in to view your library.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white">

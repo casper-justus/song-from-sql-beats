@@ -58,7 +58,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [isResolvingUrl, setIsResolvingUrl] = useState(false);
   const queryClient = useQueryClient();
 
-  // Helper function to resolve media URL via Edge Function
+  // Helper function to resolve media URL via Edge Function with proper RS256 token
   const resolveMediaUrl = useCallback(async (fileKey: string): Promise<string | null> => {
     if (!fileKey) return null;
     if (resolvedUrlCache[fileKey]) return resolvedUrlCache[fileKey];
@@ -69,6 +69,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     setIsResolvingUrl(true);
     try {
+      // Get the Clerk JWT token with proper RS256 format for Supabase
       const token = await session.getToken({
         template: 'supabase'
       });
@@ -77,7 +78,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw new Error("Failed to get authentication token");
       }
 
-      console.log('Using token for super-handler request');
+      console.log('Using RS256 token for super-handler request');
       const response = await fetch(`${SUPABASE_URL_FOR_FUNCTIONS}/functions/v1/super-handler?key=${encodeURIComponent(fileKey)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
