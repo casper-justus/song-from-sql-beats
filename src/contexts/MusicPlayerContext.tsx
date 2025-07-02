@@ -4,8 +4,6 @@ import { useUser, useSession } from '@clerk/clerk-react';
 import { Database, Tables } from '@/integrations/supabase/types';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 
-const SUPABASE_URL_FOR_FUNCTIONS = "https://dqckopgetuodqhgnhhxw.supabase.co";
-
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
 
@@ -39,6 +37,27 @@ interface MusicPlayerContextType {
 
 const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(undefined);
 
+/**
+ * Extracts the R2 object key from a full Cloudflare R2 public URL.
+ * Assumes the URL format: https://[account_id].r2.cloudflarestorage.com/[bucket_name]/[object_key]
+ * This function handles URL-encoded characters.
+ *
+ * @param {string} fullR2Url The complete R2 public URL.
+ * @returns {string|null} The R2 object key (e.g., "music/music/song.mp3") or null if invalid format.
+ */
+function extractR2KeyFromUrl(fullR2Url: string): string | null {
+  try {
+    const url = new URL(fullR2Url);
+    // The pathname will be something like "/[bucket_name]/[object_key]"
+    // We remove the leading slash to get the R2 object key.
+    let path = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
+    return decodeURIComponent(path); // Decode any URL-encoded characters (e.g., %20 to space)
+  } catch (error) {
+    console.error("Failed to parse R2 URL for key extraction in Edge Function:", fullR2Url, error);
+    return null; // Return null if the URL is invalid or cannot be parsed
+  }
+}
+
 export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useUser();
   const { session } = useSession();
@@ -69,6 +88,9 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     setIsResolvingUrl(true);
     try {
+      // Extract R2 key from the full URL if needed
+      const r2Key = extractR2KeyFromUrl(fileKey) || fileKey;
+      
       // Get the Clerk JWT token with RS256 format using the supabase template
       const token = await session.getToken({
         template: 'supabase'
@@ -86,8 +108,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         console.warn('Could not parse token payload for validation');
       }
 
-      console.log('Using RS256 token for super-handler request');
-      const response = await fetch(`${SUPABASE_URL_FOR_FUNCTIONS}/functions/v1/super-handler?key=${encodeURIComponent(fileKey)}`, {
+      console.log('Using RS256 token for R2 signing request');
+      const response = await fetch(`https://aws.njahjustus.workers.dev/sign-r2?key=${encodeURIComponent(r2Key)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
