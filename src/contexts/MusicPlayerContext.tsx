@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useRef, useEffect, ReactNode, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser, useSession } from '@clerk/clerk-react';
@@ -468,7 +469,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       // Default to first song and create initial queue
       setQueue(songs, 0);
     }
-  }, [songs, currentSong]);
+  }, [songs, currentSong, setQueue]);
 
   // Save state periodically
   useEffect(() => {
@@ -481,7 +482,9 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     return () => clearInterval(interval);
   }, [currentSong, currentTime, volume, queue, currentQueueIndex]);
 
-  const audio = audioRef.current;
+  // Audio event listeners
+  useEffect(() => {
+    const audio = audioRef.current;
     if (!audio) return;
 
     const updateTime = () => setCurrentTime(audio.currentTime);
@@ -508,7 +511,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', (e) => console.error("Audio Element Error (removed):", e));
     };
-  }, [currentSong]);
+  }, []);
 
   useEffect(() => {
     if (audioRef.current) {
