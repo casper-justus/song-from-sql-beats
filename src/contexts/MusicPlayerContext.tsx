@@ -69,16 +69,21 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [showLyricsDialog, setShowLyricsDialog] = useState(false);
   const [showQueueDialog, setShowQueueDialog] = useState(false);
   const [preloadProgress, setPreloadProgress] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
   const queryClient = useQueryClient();
 
-  // Enhanced URL resolution with better caching
-  const resolveMediaUrlWithSession = useCallback(async (fileKey: string, isAudioFile: boolean = false): Promise<string | null> => {
-    return resolveMediaUrl(fileKey, session, isAudioFile);
+  // Enhanced URL resolution with priority support
+  const resolveMediaUrlWithSession = useCallback(async (
+    fileKey: string, 
+    isAudioFile: boolean = false, 
+    priority: 'high' | 'normal' = 'normal'
+  ): Promise<string | null> => {
+    return resolveMediaUrl(fileKey, session, isAudioFile, priority);
   }, [session]);
 
-  // Preload multiple songs efficiently
-  const preloadSongsWithSession = useCallback(async (songsToPreload: Song[]) => {
-    await preloadSongs(songsToPreload, resolveMediaUrlWithSession, setPreloadProgress);
+  // Enhanced preloading with current queue position
+  const preloadSongsWithSession = useCallback(async (songsToPreload: Song[], currentIndex: number = 0) => {
+    await preloadSongs(songsToPreload, resolveMediaUrlWithSession, setPreloadProgress, currentIndex);
   }, [resolveMediaUrlWithSession]);
 
   // Use playlist operations hook
@@ -139,16 +144,42 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     staleTime: 5 * 60 * 1000,
   });
 
-  // Update songs and preload
+  // Update songs and preload with better initialization
   useEffect(() => {
     if (songsError) console.error("Error in fetchedSongs query:", songsError);
     setSongs(fetchedSongs);
     
-    // Preload first 10 songs when songs are loaded
-    if (fetchedSongs.length > 0) {
-      preloadSongsWithSession(fetchedSongs.slice(0, 10));
+    // Initialize player state only once when songs are first loaded
+    if (fetchedSongs.length > 0 && !isInitialized) {
+      setIsInitialized(true);
+      
+      // Load saved state
+      const savedState = loadPlayerState();
+      if (savedState && savedState.lastQueue.length > 0) {
+        // Restore saved state without autoplay
+        setQueueState(savedState.lastQueue);
+        setCurrentQueueIndex(savedState.lastQueueIndex);
+        const lastSong = savedState.lastQueue[savedState.lastQueueIndex];
+        if (lastSong) {
+          setCurrentSong(lastSong);
+          setVolumeState(savedState.lastVolume);
+          // Set progress but don't autoplay
+          setTimeout(() => {
+            if (audioRef.current && savedState.lastProgress > 0) {
+              audioRef.current.currentTime = savedState.lastProgress;
+              setCurrentTime(savedState.lastProgress);
+            }
+          }, 1000);
+        }
+      } else {
+        // Default initialization
+        setQueue(fetchedSongs, 0);
+      }
+      
+      // Start preloading after initialization
+      preloadSongsWithSession(fetchedSongs.slice(0, 10), 0);
     }
-  }, [fetchedSongs, songsError, preloadSongsWithSession]);
+  }, [fetchedSongs, songsError, preloadSongsWithSession, isInitialized, audioRef]);
 
   useEffect(() => {
     setPlaylists(fetchedPlaylists);
@@ -196,9 +227,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     setCurrentQueueIndex(startIndex);
     if (newQueue.length > 0) {
       setCurrentSong(newQueue[startIndex]);
-      // Preload next few songs in queue
-      const songsToPreload = newQueue.slice(startIndex, startIndex + 5);
-      preloadSongsWithSession(songsToPreload);
+      // Preload with current index for better prioritization
+      preloadSongsWithSession(newQueue.slice(startIndex, startIndex + 8), 0);
     }
   }, [preloadSongsWithSession]);
 
@@ -235,34 +265,50 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       const song = queue[index];
       setCurrentSong(song);
       
-      // Auto-play the selected song
+      // Stop current audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        setCurrentTime(0);
+        setIsPlaying(false);
+      }
+      
+      // Auto-play the selected song with improved error handling
       setTimeout(async () => {
         if (audioRef.current) {
           const audioFileKey = song.storage_path || song.file_url;
           
-          // Check preload queue first
-          let resolvedSrc: string | null = null;
-          const preloadPromise = preloadQueue.get(song.id);
-          if (preloadPromise) {
-            resolvedSrc = await preloadPromise;
-          } else {
-            resolvedSrc = await resolveMediaUrlWithSession(audioFileKey, true);
-          }
+          try {
+            // Check preload queue first, then resolve with high priority
+            let resolvedSrc: string | null = null;
+            const preloadPromise = preloadQueue.get(song.id);
+            if (preloadPromise) {
+              resolvedSrc = await preloadPromise;
+            }
+            
+            if (!resolvedSrc) {
+              resolvedSrc = await resolveMediaUrlWithSession(audioFileKey, true, 'high');
+            }
 
-          if (resolvedSrc && audioRef.current) {
-            try {
+            if (resolvedSrc && audioRef.current) {
               audioRef.current.src = resolvedSrc;
               await audioRef.current.play();
               setIsPlaying(true);
-            } catch (error) {
-              console.error('Error playing song from queue:', error);
-              setIsPlaying(false);
+              
+              // Preload next songs in background
+              const nextSongs = queue.slice(index + 1, index + 4);
+              if (nextSongs.length > 0) {
+                preloadSongsWithSession(nextSongs, 0);
+              }
             }
+          } catch (error) {
+            console.error('Error playing song from queue:', error);
+            setIsPlaying(false);
           }
         }
       }, 100);
     }
-  }, [queue, resolveMediaUrlWithSession, audioRef]);
+  }, [queue, resolveMediaUrlWithSession, audioRef, preloadSongsWithSession]);
 
   // Load saved state on mount
   useEffect(() => {
@@ -289,16 +335,16 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [songs, currentSong, setQueue, audioRef]);
 
-  // Save state periodically
+  // Save state periodically with improved data
   useEffect(() => {
     const interval = setInterval(() => {
       if (currentSong && currentTime > 0) {
-        savePlayerState(currentSong.id, currentTime, volume, queue, currentQueueIndex);
+        savePlayerState(currentSong.id, currentTime, volume, queue, currentQueueIndex, isPlaying);
       }
-    }, 10000);
+    }, 15000); // Save every 15 seconds instead of 10
 
     return () => clearInterval(interval);
-  }, [currentSong, currentTime, volume, queue, currentQueueIndex]);
+  }, [currentSong, currentTime, volume, queue, currentQueueIndex, isPlaying]);
 
   // Update volume when changed
   useEffect(() => {
@@ -358,32 +404,33 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
     }
 
-    // Auto-play the selected song
+    // Auto-play with enhanced error handling
     setTimeout(async () => {
       if (audioRef.current) {
         const audioFileKey = song.storage_path || song.file_url;
         
-        // Check preload queue first
-        let resolvedSrc: string | null = null;
-        const preloadPromise = preloadQueue.get(song.id);
-        if (preloadPromise) {
-          resolvedSrc = await preloadPromise;
-        } else {
-          resolvedSrc = await resolveMediaUrlWithSession(audioFileKey, true);
-        }
+        try {
+          let resolvedSrc: string | null = null;
+          const preloadPromise = preloadQueue.get(song.id);
+          if (preloadPromise) {
+            resolvedSrc = await preloadPromise;
+          }
+          
+          if (!resolvedSrc) {
+            resolvedSrc = await resolveMediaUrlWithSession(audioFileKey, true, 'high');
+          }
 
-        if (resolvedSrc && audioRef.current) {
-          try {
+          if (resolvedSrc && audioRef.current) {
             audioRef.current.src = resolvedSrc;
             await audioRef.current.play();
             setIsPlaying(true);
-          } catch (error) {
-            console.error('Error auto-playing song:', error);
-            setIsPlaying(false);
           }
+        } catch (error) {
+          console.error('Error auto-playing song:', error);
+          setIsPlaying(false);
         }
       }
-    }, 100);
+    }, 150);
   }, [queue, songs, resolveMediaUrlWithSession, setQueue, audioRef]);
 
   const togglePlay = useCallback(async () => {
@@ -393,28 +440,29 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      const audioFileKey = currentSong.storage_path || currentSong.file_url;
-      
-      // Check preload queue first
-      let resolvedSrc: string | null = null;
-      const preloadPromise = preloadQueue.get(currentSong.id);
-      if (preloadPromise) {
-        resolvedSrc = await preloadPromise;
-      } else {
-        resolvedSrc = await resolveMediaUrlWithSession(audioFileKey, true);
-      }
-
-      if (resolvedSrc) {
-        if (audioRef.current.src !== resolvedSrc) {
-          audioRef.current.src = resolvedSrc;
+      try {
+        const audioFileKey = currentSong.storage_path || currentSong.file_url;
+        
+        let resolvedSrc: string | null = null;
+        const preloadPromise = preloadQueue.get(currentSong.id);
+        if (preloadPromise) {
+          resolvedSrc = await preloadPromise;
         }
-        try {
+        
+        if (!resolvedSrc) {
+          resolvedSrc = await resolveMediaUrlWithSession(audioFileKey, true, 'high');
+        }
+
+        if (resolvedSrc) {
+          if (audioRef.current.src !== resolvedSrc) {
+            audioRef.current.src = resolvedSrc;
+          }
           await audioRef.current.play();
           setIsPlaying(true);
-        } catch (error) {
-          console.error('Error playing audio:', error);
-          setIsPlaying(false);
         }
+      } catch (error) {
+        console.error('Error playing audio:', error);
+        setIsPlaying(false);
       }
     }
   }, [isPlaying, currentSong, resolveMediaUrlWithSession, audioRef]);
