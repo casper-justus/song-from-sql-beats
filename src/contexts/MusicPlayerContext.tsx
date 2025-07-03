@@ -81,14 +81,9 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     return resolveMediaUrl(fileKey, session, isAudioFile, priority);
   }, [session]);
 
-  // Enhanced preloading with current queue position and background prefetch
+  // Enhanced preloading with current queue position
   const preloadSongsWithSession = useCallback(async (songsToPreload: Song[], currentIndex: number = 0) => {
     await preloadSongs(songsToPreload, resolveMediaUrlWithSession, setPreloadProgress, currentIndex);
-    
-    // Start background prefetch for upcoming songs
-    if (songsToPreload.length > currentIndex + 8) {
-      startBackgroundPrefetch(songsToPreload, currentIndex, resolveMediaUrlWithSession);
-    }
   }, [resolveMediaUrlWithSession]);
 
   // Use playlist operations hook
@@ -149,19 +144,18 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     staleTime: 5 * 60 * 1000,
   });
 
-  // Update songs and initialize with aggressive preloading
+  // Update songs and initialize without state loading
   useEffect(() => {
     if (songsError) console.error("Error in fetchedSongs query:", songsError);
     setSongs(fetchedSongs);
     
-    // Enhanced initialization with better preloading
+    // Simple initialization without state loading
     if (fetchedSongs.length > 0 && !isInitialized) {
       setIsInitialized(true);
+      // Just set up the default queue without any saved state
       setQueue(fetchedSongs, 0);
-      
-      // Aggressive preloading for faster performance
-      const preloadCount = Math.min(20, fetchedSongs.length);
-      preloadSongsWithSession(fetchedSongs.slice(0, preloadCount), 0);
+      // Start preloading
+      preloadSongsWithSession(fetchedSongs.slice(0, 10), 0);
     }
   }, [fetchedSongs, songsError, preloadSongsWithSession, isInitialized]);
 
@@ -305,10 +299,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     setVolume(volume);
   }, [volume, setVolume]);
 
-  // Fetch lyrics using enhanced fetchLyricsContent with synced lyrics support
+  // Fetch lyrics using improved fetchLyricsContent
   useEffect(() => {
     const fetchLyricsContentAsync = async () => {
-      if (!currentSong) {
+      if (!currentSong || !currentSong.lyrics_url) {
         setLyrics('No lyrics available for this song.');
         return;
       }
@@ -316,13 +310,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       setLyrics('Loading lyrics...');
 
       try {
-        const lyricsContent = await fetchLyricsContent(
-          currentSong.lyrics_url || '', 
-          session, 
-          currentSong.title, 
-          currentSong.artist, 
-          currentSong.album
-        );
+        const lyricsContent = await fetchLyricsContent(currentSong.lyrics_url, session);
         setLyrics(lyricsContent);
       } catch (error) {
         console.error('Error fetching lyrics:', error);

@@ -17,9 +17,9 @@ import LikedSongsPage from "./pages/LikedSongsPage";
 import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
+import { BottomNavbar } from "./components/BottomNavbar";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { DynamicBackground } from "./components/DynamicBackground";
-import { NowPlayingBar } from "./components/NowPlayingBar";
 
 const queryClient = new QueryClient();
 
@@ -28,14 +28,14 @@ const ConditionalBottomNavigation = () => {
   if (!isSignedIn) return null;
   return (
     <>
+      <BottomNavbar />
       <BottomNavigation />
-      <NowPlayingBar />
     </>
   );
 };
 
 const AppContent = () => (
-  <div className={`min-h-screen relative pb-24`}>
+  <div className={`min-h-screen relative`}>
     <DynamicBackground />
     <div className="relative z-10">
       <Routes>
