@@ -415,4 +415,4 @@ export function optimizeCache() {
 // More frequent cache optimization for better performance
 setInterval(optimizeCache, 2 * 60 * 1000); // Every 2 minutes
 
-export { globalMediaCache, preloadQueue, priorityQueue };
+export { globalMediaCache, preloadQueue, priorityQueue, startBackgroundPrefetch };

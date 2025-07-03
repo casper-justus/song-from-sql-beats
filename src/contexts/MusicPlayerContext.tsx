@@ -5,7 +5,7 @@ import { Database, Tables } from '@/integrations/supabase/types';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { usePlaylistOperations } from '@/hooks/usePlaylistOperations';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
-import { resolveMediaUrl, preloadSongs, preloadQueue, fetchLyricsContent, startBackgroundPrefetch } from '@/utils/mediaCache';
+import { resolveMediaUrl, preloadSongs, preloadQueue, fetchLyricsContent } from '@/utils/mediaCache';
 import { saveUserPreferences, loadUserPreferences } from '@/utils/playerStorage';
 
 type Song = Tables<'songs'>;

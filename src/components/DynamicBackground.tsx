@@ -162,16 +162,14 @@ export function DynamicBackground() {
         </div>
       )}
 
-      <style>
-        {`
-          @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            25% { transform: translateY(-20px) rotate(90deg); }
-            50% { transform: translateY(-40px) rotate(180deg); }
-            75% { transform: translateY(-20px) rotate(270deg); }
-          }
-        `}
-      </style>
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          25% { transform: translateY(-20px) rotate(90deg); }
+          50% { transform: translateY(-40px) rotate(180deg); }
+          75% { transform: translateY(-20px) rotate(270deg); }
+        }
+      `}</style>
     </div>
   );
 }
