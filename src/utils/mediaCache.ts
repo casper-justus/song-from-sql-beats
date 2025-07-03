@@ -32,7 +32,7 @@ const getNetworkQuality = (): 'slow' | 'fast' => {
 /**
  * Constructs the proper R2 key for music files by adding the 'music/' prefix
  */
-export function constructMusicR2Key(storagePath: string]: string {
+export function constructMusicR2Key(storagePath: string): string {
   if (storagePath.startsWith('music/')) {
     return storagePath;
   }
