@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser, useSession } from '@clerk/clerk-react';
@@ -6,7 +5,7 @@ import { Database, Tables } from '@/integrations/supabase/types';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { usePlaylistOperations } from '@/hooks/usePlaylistOperations';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
-import { resolveMediaUrl, preloadSongs, preloadQueue } from '@/utils/mediaCache';
+import { resolveMediaUrl, preloadSongs, preloadQueue, fetchLyricsContent } from '@/utils/mediaCache';
 import { savePlayerState, loadPlayerState } from '@/utils/playerStorage';
 
 type Song = Tables<'songs'>;
@@ -306,41 +305,31 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     setVolume(volume);
   }, [volume, setVolume]);
 
-  // Fetch lyrics
+  // Fetch lyrics using improved fetchLyricsContent
   useEffect(() => {
-    const fetchLyricsContent = async () => {
+    const fetchLyricsContentAsync = async () => {
       if (!currentSong || !currentSong.lyrics_url) {
         setLyrics('No lyrics available for this song.');
         return;
       }
 
-      const lyricsFileKey = currentSong.lyrics_url;
       setLyrics('Loading lyrics...');
 
       try {
-        const resolvedLyricsUrl = await resolveMediaUrlWithSession(lyricsFileKey, false);
-        if (resolvedLyricsUrl) {
-          const response = await fetch(resolvedLyricsUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch lyrics content: ${response.statusText}`);
-          }
-          const text = await response.text();
-          setLyrics(text || 'No lyrics content found.');
-        } else {
-          throw new Error("Could not resolve lyrics URL.");
-        }
+        const lyricsContent = await fetchLyricsContent(currentSong.lyrics_url, session);
+        setLyrics(lyricsContent);
       } catch (error) {
-        console.error('Error fetching lyrics content:', error);
-        setLyrics('Error loading lyrics.');
+        console.error('Error fetching lyrics:', error);
+        setLyrics('Error loading lyrics. Please try again later.');
       }
     };
 
     if (currentSong) {
-      fetchLyricsContent();
+      fetchLyricsContentAsync();
     } else {
       setLyrics('');
     }
-  }, [currentSong, resolveMediaUrlWithSession]);
+  }, [currentSong, session]);
 
   // Enhanced selectSong function
   const selectSong = useCallback(async (song: Song) => {

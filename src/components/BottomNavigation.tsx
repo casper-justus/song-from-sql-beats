@@ -11,7 +11,7 @@ export function BottomNavigation() {
     { icon: Home, label: 'Home', path: '/' },
     { icon: Search, label: 'Search', path: '/search' },
     { icon: Music, label: 'Library', path: '/library' },
-    { icon: Heart, label: 'Liked', path: '/library?tab=liked' },
+    { icon: Heart, label: 'Liked', path: '/liked' },
     { icon: User, label: 'Profile', path: '/profile' },
   ];
 
@@ -20,8 +20,7 @@ export function BottomNavigation() {
       <div className="flex items-center justify-around h-full px-4">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path || 
-            (item.path === '/library?tab=liked' && location.pathname === '/library' && location.search.includes('tab=liked'));
+          const isActive = location.pathname === item.path;
           
           return (
             <Link

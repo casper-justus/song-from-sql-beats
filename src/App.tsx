@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignUpPage";
 import LibraryPage from "./pages/LibraryPage";
+import LikedSongsPage from "./pages/LikedSongsPage";
 import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
@@ -42,6 +43,7 @@ const AppContent = () => (
 
       <Route element={<ClerkProtectedRoute />}>
         <Route path="/library" element={<LibraryPage />} />
+        <Route path="/liked" element={<LikedSongsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 

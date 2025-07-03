@@ -1,15 +1,38 @@
 
-// Enhanced global cache for resolved media URLs with expiration
-const globalMediaCache = new Map<string, { url: string; expires: number }>();
+// Enhanced global cache for resolved media URLs with expiration and device optimization
+const globalMediaCache = new Map<string, { url: string; expires: number; deviceType?: string }>();
 const CACHE_DURATION = 45 * 60 * 1000; // 45 minutes
 
 // Preload queue for faster access
 const preloadQueue = new Map<string, Promise<string | null>>();
 
+// Device detection for optimized caching
+const getDeviceType = () => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  if (/mobile|android|iphone|ipad|phone/i.test(userAgent)) {
+    return 'mobile';
+  }
+  if (/tablet|ipad/i.test(userAgent)) {
+    return 'tablet';
+  }
+  return 'desktop';
+};
+
+// Network quality detection
+const getNetworkQuality = (): 'slow' | 'fast' => {
+  if ('connection' in navigator) {
+    const connection = (navigator as any).connection;
+    if (connection.effectiveType === '4g' || connection.effectiveType === '3g') {
+      return 'fast';
+    }
+  }
+  return 'slow';
+};
+
 /**
  * Constructs the proper R2 key for music files by adding the 'music/' prefix
  */
-export function constructMusicR2Key(storagePath: string): string {
+export function constructMusicR2Key(storagePath: string]: string {
   if (storagePath.startsWith('music/')) {
     return storagePath;
   }
@@ -17,7 +40,7 @@ export function constructMusicR2Key(storagePath: string): string {
 }
 
 /**
- * Enhanced URL resolution with better caching
+ * Enhanced URL resolution with better caching and device optimization
  */
 export async function resolveMediaUrl(
   fileKey: string, 
@@ -26,8 +49,11 @@ export async function resolveMediaUrl(
 ): Promise<string | null> {
   if (!fileKey) return null;
   
+  const deviceType = getDeviceType();
+  const cacheKey = `${fileKey}-${deviceType}`;
+  
   // Check cache first
-  const cached = globalMediaCache.get(fileKey);
+  const cached = globalMediaCache.get(cacheKey);
   if (cached && Date.now() < cached.expires) {
     return cached.url;
   }
@@ -61,9 +87,10 @@ export async function resolveMediaUrl(
     
     const data = await response.json();
     if (data && data.signedUrl) {
-      globalMediaCache.set(fileKey, {
+      globalMediaCache.set(cacheKey, {
         url: data.signedUrl,
-        expires: Date.now() + CACHE_DURATION
+        expires: Date.now() + CACHE_DURATION,
+        deviceType
       });
       return data.signedUrl;
     }
@@ -75,14 +102,77 @@ export async function resolveMediaUrl(
 }
 
 /**
- * Preload multiple songs efficiently
+ * Enhanced lyrics fetching with caching and retry logic
+ */
+export async function fetchLyricsContent(
+  lyricsUrl: string,
+  session: any
+): Promise<string> {
+  if (!lyricsUrl) {
+    return 'No lyrics available for this song.';
+  }
+
+  const cacheKey = `lyrics-${lyricsUrl}`;
+  const cached = globalMediaCache.get(cacheKey);
+  
+  if (cached && Date.now() < cached.expires) {
+    try {
+      const response = await fetch(cached.url);
+      if (response.ok) {
+        return await response.text() || 'No lyrics content found.';
+      }
+    } catch (error) {
+      console.log('Cached lyrics URL expired, fetching new one');
+    }
+  }
+
+  try {
+    const resolvedLyricsUrl = await resolveMediaUrl(lyricsUrl, session, false);
+    if (!resolvedLyricsUrl) {
+      throw new Error("Could not resolve lyrics URL.");
+    }
+
+    // Cache the resolved URL
+    globalMediaCache.set(cacheKey, {
+      url: resolvedLyricsUrl,
+      expires: Date.now() + CACHE_DURATION
+    });
+
+    const response = await fetch(resolvedLyricsUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch lyrics content: ${response.statusText}`);
+    }
+
+    const text = await response.text();
+    return text || 'No lyrics content found.';
+  } catch (error) {
+    console.error('Error fetching lyrics content:', error);
+    return 'Error loading lyrics. Please try again later.';
+  }
+}
+
+/**
+ * Preload multiple songs efficiently with device optimization
  */
 export async function preloadSongs(
   songsToPreload: any[], 
   resolveUrl: (key: string, isAudio: boolean) => Promise<string | null>,
   setProgress: (progress: number) => void
 ) {
-  const preloadPromises = songsToPreload.map(async (song, index) => {
+  const networkQuality = getNetworkQuality();
+  const deviceType = getDeviceType();
+  
+  // Adjust preload count based on device and network
+  let maxPreload = songsToPreload.length;
+  if (deviceType === 'mobile') {
+    maxPreload = Math.min(5, songsToPreload.length);
+  } else if (networkQuality === 'slow') {
+    maxPreload = Math.min(3, songsToPreload.length);
+  }
+
+  const songsToProcess = songsToPreload.slice(0, maxPreload);
+  
+  const preloadPromises = songsToProcess.map(async (song, index) => {
     const audioFileKey = song.storage_path || song.file_url;
     if (!audioFileKey || preloadQueue.has(song.id)) return;
 
@@ -91,14 +181,14 @@ export async function preloadSongs(
 
     try {
       const resolvedUrl = await preloadPromise;
-      if (resolvedUrl) {
-        // Preload the audio metadata
+      if (resolvedUrl && deviceType !== 'mobile') {
+        // Only preload audio metadata on non-mobile devices to save bandwidth
         const audio = new Audio();
         audio.preload = 'metadata';
         audio.src = resolvedUrl;
-        
-        setProgress(((index + 1) / songsToPreload.length) * 100);
       }
+      
+      setProgress(((index + 1) / songsToProcess.length) * 100);
     } catch (error) {
       console.error('Error preloading song:', song.title, error);
     }
@@ -107,5 +197,27 @@ export async function preloadSongs(
   await Promise.allSettled(preloadPromises);
   setProgress(100);
 }
+
+/**
+ * Clear cache based on device memory constraints
+ */
+export function optimizeCache() {
+  const deviceType = getDeviceType();
+  const maxCacheSize = deviceType === 'mobile' ? 50 : 200;
+  
+  if (globalMediaCache.size > maxCacheSize) {
+    const entries = Array.from(globalMediaCache.entries());
+    entries.sort((a, b) => a[1].expires - b[1].expires);
+    
+    // Remove oldest 25% of entries
+    const toRemove = Math.floor(entries.length * 0.25);
+    for (let i = 0; i < toRemove; i++) {
+      globalMediaCache.delete(entries[i][0]);
+    }
+  }
+}
+
+// Auto-optimize cache every 5 minutes
+setInterval(optimizeCache, 5 * 60 * 1000);
 
 export { globalMediaCache, preloadQueue };
