@@ -24,7 +24,9 @@ export function DownloadManager() {
 
   useEffect(() => {
     const unsubscribe = downloadManager.addListener(setDownloads);
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleDownload = async (song: any) => {
