@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,10 +19,23 @@ import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
 import { BottomNavigation } from "./components/BottomNavigation";
+import { BottomNavbar } from "./components/BottomNavbar";
 import { DynamicBackground } from "./components/DynamicBackground";
 import { NowPlayingBar } from "./components/NowPlayingBar";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error: any) => {
+        // Don't retry CORS errors
+        if (error?.message?.includes('CORS') || error?.message?.includes('Failed to fetch')) {
+          return false;
+        }
+        return failureCount < 2;
+      },
+    },
+  },
+});
 
 const ConditionalBottomNavigation = () => {
   const { isSignedIn } = useUser();
@@ -29,13 +43,13 @@ const ConditionalBottomNavigation = () => {
   return (
     <>
       <BottomNavigation />
-      <NowPlayingBar />
+      <BottomNavbar />
     </>
   );
 };
 
 const AppContent = () => (
-  <div className={`min-h-screen relative pb-24`}>
+  <div className={`min-h-screen relative pb-32`}>
     <DynamicBackground />
     <div className="relative z-10">
       <Routes>
