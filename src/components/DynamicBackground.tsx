@@ -9,6 +9,7 @@ export function DynamicBackground() {
   const { session } = useSession();
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [dominantColors, setDominantColors] = useState<string[]>(['#1a1a1a', '#2a2a2a']);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const updateBackground = async () => {
@@ -18,18 +19,27 @@ export function DynamicBackground() {
         return;
       }
 
+      setIsLoading(true);
+      
       try {
         if (currentSong.cover_url) {
+          console.log('Loading background image for:', currentSong.title);
           const resolvedImageUrl = await resolveMediaUrl(currentSong.cover_url, session, false, 'high');
           if (resolvedImageUrl) {
             setBackgroundImage(resolvedImageUrl);
-            // Extract colors would go here in a real implementation
-            // For now, using theme-appropriate colors
-            setDominantColors(['#2563eb', '#1e40af']);
+            // Generate colors based on song info for fallback
+            const colors = generateColorsFromText(currentSong.title + (currentSong.artist || ''));
+            setDominantColors(colors);
+            console.log('Background image loaded successfully');
+          } else {
+            console.log('No resolved image URL, using color scheme');
+            setBackgroundImage(null);
+            const colors = generateColorsFromText(currentSong.title + (currentSong.artist || ''));
+            setDominantColors(colors);
           }
         } else {
+          console.log('No cover URL, generating colors from text');
           setBackgroundImage(null);
-          // Generate colors based on song info
           const colors = generateColorsFromText(currentSong.title + (currentSong.artist || ''));
           setDominantColors(colors);
         }
@@ -37,6 +47,8 @@ export function DynamicBackground() {
         console.error('Error updating background:', error);
         setBackgroundImage(null);
         setDominantColors(['#1a1a1a', '#2a2a2a']);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -61,33 +73,52 @@ export function DynamicBackground() {
 
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
-      {/* Background Image */}
+      {/* Background Image with strong blur effect */}
       {backgroundImage && (
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20 blur-3xl scale-110 transition-all duration-1000"
+          key={currentSong?.id} // Force re-render when song changes
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 blur-2xl scale-110 transition-all duration-1000 ease-in-out"
           style={{
             backgroundImage: `url(${backgroundImage})`,
+            filter: 'blur(40px) brightness(0.7)',
           }}
         />
       )}
       
-      {/* Gradient Overlay */}
+      {/* Gradient Overlay that changes based on song */}
       <div
-        className="absolute inset-0 opacity-90 transition-all duration-1000"
+        key={`gradient-${currentSong?.id}`}
+        className="absolute inset-0 opacity-90 transition-all duration-1000 ease-in-out"
         style={{
           background: `linear-gradient(135deg, ${dominantColors[0]} 0%, ${dominantColors[1]} 50%, #000000 100%)`
         }}
       />
       
-      {/* Additional Gradient for depth */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
+      {/* Additional dark overlay for better text readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/40" />
       
-      {/* Animated particles/dots for visual interest */}
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white/20 rounded-full animate-pulse" />
-        <div className="absolute top-3/4 right-1/3 w-1 h-1 bg-white/20 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute bottom-1/4 left-1/2 w-1.5 h-1.5 bg-white/20 rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+      {/* Subtle animated elements for visual interest */}
+      <div className="absolute inset-0 opacity-20">
+        <div 
+          className="absolute top-1/4 left-1/4 w-2 h-2 bg-white/30 rounded-full animate-pulse" 
+          style={{ animationDuration: '3s' }}
+        />
+        <div 
+          className="absolute top-3/4 right-1/3 w-1 h-1 bg-white/20 rounded-full animate-pulse" 
+          style={{ animationDelay: '1s', animationDuration: '4s' }} 
+        />
+        <div 
+          className="absolute bottom-1/4 left-1/2 w-1.5 h-1.5 bg-white/25 rounded-full animate-pulse" 
+          style={{ animationDelay: '2s', animationDuration: '5s' }} 
+        />
       </div>
+
+      {/* Loading indicator when switching tracks */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-50">
+          <div className="w-8 h-8 border-2 border-white/30 border-t-white/80 rounded-full animate-spin" />
+        </div>
+      )}
     </div>
   );
 }

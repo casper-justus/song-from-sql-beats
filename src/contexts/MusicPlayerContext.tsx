@@ -6,7 +6,7 @@ import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { usePlaylistOperations } from '@/hooks/usePlaylistOperations';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { resolveMediaUrl, preloadSongs, preloadQueue, fetchLyricsContent } from '@/utils/mediaCache';
-import { savePlayerState, loadPlayerState } from '@/utils/playerStorage';
+import { saveUserPreferences, loadUserPreferences } from '@/utils/playerStorage';
 
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
@@ -144,42 +144,20 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     staleTime: 5 * 60 * 1000,
   });
 
-  // Update songs and preload with better initialization
+  // Update songs and initialize without state loading
   useEffect(() => {
     if (songsError) console.error("Error in fetchedSongs query:", songsError);
     setSongs(fetchedSongs);
     
-    // Initialize player state only once when songs are first loaded
+    // Simple initialization without state loading
     if (fetchedSongs.length > 0 && !isInitialized) {
       setIsInitialized(true);
-      
-      // Load saved state
-      const savedState = loadPlayerState();
-      if (savedState && savedState.lastQueue.length > 0) {
-        // Restore saved state without autoplay
-        setQueueState(savedState.lastQueue);
-        setCurrentQueueIndex(savedState.lastQueueIndex);
-        const lastSong = savedState.lastQueue[savedState.lastQueueIndex];
-        if (lastSong) {
-          setCurrentSong(lastSong);
-          setVolumeState(savedState.lastVolume);
-          // Set progress but don't autoplay
-          setTimeout(() => {
-            if (audioRef.current && savedState.lastProgress > 0) {
-              audioRef.current.currentTime = savedState.lastProgress;
-              setCurrentTime(savedState.lastProgress);
-            }
-          }, 1000);
-        }
-      } else {
-        // Default initialization
-        setQueue(fetchedSongs, 0);
-      }
-      
-      // Start preloading after initialization
+      // Just set up the default queue without any saved state
+      setQueue(fetchedSongs, 0);
+      // Start preloading
       preloadSongsWithSession(fetchedSongs.slice(0, 10), 0);
     }
-  }, [fetchedSongs, songsError, preloadSongsWithSession, isInitialized, audioRef]);
+  }, [fetchedSongs, songsError, preloadSongsWithSession, isInitialized]);
 
   useEffect(() => {
     setPlaylists(fetchedPlaylists);
@@ -310,41 +288,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [queue, resolveMediaUrlWithSession, audioRef, preloadSongsWithSession]);
 
-  // Load saved state on mount
+  // Load only user preferences (not player state)
   useEffect(() => {
-    const savedState = loadPlayerState();
-    if (savedState && songs.length > 0) {
-      setVolumeState(savedState.lastVolume);
-      if (savedState.lastQueue.length > 0) {
-        setQueueState(savedState.lastQueue);
-        setCurrentQueueIndex(savedState.lastQueueIndex);
-        const lastSong = songs.find(s => s.id === savedState.lastSongId);
-        if (lastSong) {
-          setCurrentSong(lastSong);
-          setTimeout(() => {
-            if (audioRef.current && savedState.lastProgress > 0) {
-              audioRef.current.currentTime = savedState.lastProgress;
-              setCurrentTime(savedState.lastProgress);
-            }
-          }, 500);
-        }
-      }
-    } else if (!currentSong && songs.length > 0) {
-      // Default to first song and create initial queue
-      setQueue(songs, 0);
-    }
-  }, [songs, currentSong, setQueue, audioRef]);
-
-  // Save state periodically with improved data
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (currentSong && currentTime > 0) {
-        savePlayerState(currentSong.id, currentTime, volume, queue, currentQueueIndex, isPlaying);
-      }
-    }, 15000); // Save every 15 seconds instead of 10
-
-    return () => clearInterval(interval);
-  }, [currentSong, currentTime, volume, queue, currentQueueIndex, isPlaying]);
+    const preferences = loadUserPreferences();
+    setVolumeState(preferences.volume);
+  }, []);
 
   // Update volume when changed
   useEffect(() => {
@@ -377,7 +325,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [currentSong, session]);
 
-  // Enhanced selectSong function
+  // Enhanced selectSong function without state saving
   const selectSong = useCallback(async (song: Song) => {
     console.log('Selecting song:', song.title);
     
@@ -468,7 +416,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [isPlaying, currentSong, resolveMediaUrlWithSession, audioRef]);
 
   const setVolumeLevel = useCallback((level: number) => {
-    setVolumeState(level / 100);
+    const newVolume = level / 100;
+    setVolumeState(newVolume);
+    // Save only preferences
+    saveUserPreferences(newVolume);
   }, []);
 
   return (
