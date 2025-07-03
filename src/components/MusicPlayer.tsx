@@ -1,15 +1,17 @@
 
 import React, { useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, FileText, Heart, Plus } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, FileText, Heart, Plus, List, Shuffle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Progress } from '@/components/ui/progress';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Tables } from '@/integrations/supabase/types';
 import ResolvedCoverImage from './ResolvedCoverImage';
+import { QueueDialog } from './QueueDialog';
 
 type Song = Tables<'songs'>;
 
@@ -17,6 +19,8 @@ const MusicPlayer = () => {
   const {
     songs,
     currentSong,
+    queue,
+    currentQueueIndex,
     isPlaying,
     currentTime,
     duration,
@@ -26,14 +30,18 @@ const MusicPlayer = () => {
     showLyricsDialog,
     isCurrentSongLiked,
     playlists,
+    preloadProgress,
     toggleLikeSong,
     togglePlay,
     playNext,
     playPrevious,
     selectSong,
+    setQueue,
+    addToQueue,
     seek,
     setVolumeLevel,
     setShowLyricsDialog,
+    setShowQueueDialog,
     addSongToPlaylist,
   } = useMusicPlayer();
 
@@ -58,6 +66,16 @@ const MusicPlayer = () => {
     setSelectedSongForPlaylist(null);
   };
 
+  const handlePlayAllSongs = () => {
+    if (songs.length > 0) {
+      setQueue(songs, 0);
+    }
+  };
+
+  const handleAddToQueue = (song: Song) => {
+    addToQueue(song);
+  };
+
   const formatTime = (time: number) => {
     if (isNaN(time) || time === Infinity) return '0:00';
     const minutes = Math.floor(time / 60);
@@ -69,6 +87,12 @@ const MusicPlayer = () => {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-white text-xl">Loading your music...</div>
+        {preloadProgress > 0 && preloadProgress < 100 && (
+          <div className="mt-4 w-64">
+            <p className="text-sm text-gray-400 mb-2">Preloading tracks...</p>
+            <Progress value={preloadProgress} className="w-full" />
+          </div>
+        )}
       </div>
     );
   }
@@ -89,7 +113,11 @@ const MusicPlayer = () => {
       <div className="flex items-center justify-center p-8">
         <div className="text-white text-center">
           <h2 className="text-2xl font-bold mb-4">Select a Song</h2>
-          <p className="text-lg">Choose a song from your library to start playing.</p>
+          <p className="text-lg mb-4">Choose a song from your library to start playing.</p>
+          <Button onClick={handlePlayAllSongs} className="bg-green-600 hover:bg-green-700">
+            <Play className="w-4 h-4 mr-2" />
+            Play All Songs
+          </Button>
         </div>
       </div>
     );
@@ -130,6 +158,11 @@ const MusicPlayer = () => {
               {currentSong.year && (
                 <p className="text-gray-500 text-sm">{currentSong.year}</p>
               )}
+              
+              {/* Queue info */}
+              <p className="text-xs text-gray-500 mt-2">
+                {currentQueueIndex + 1} of {queue.length} in queue
+              </p>
             </div>
 
             {/* Progress Bar */}
@@ -198,6 +231,17 @@ const MusicPlayer = () => {
                 <Heart className={cn("h-6 w-6", isCurrentSongLiked && "fill-current")} />
               </Button>
 
+              {/* Queue Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowQueueDialog(true)}
+                className="text-white hover:bg-white/20"
+                disabled={!currentSong}
+              >
+                <List className="h-6 w-6" />
+              </Button>
+
               {/* Lyrics Button */}
               <Dialog open={showLyricsDialog} onOpenChange={setShowLyricsDialog}>
                 <DialogTrigger asChild>
@@ -238,9 +282,21 @@ const MusicPlayer = () => {
 
           {/* Song List */}
           <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-6">
-            <h3 className="text-xl font-bold text-white mb-4">Your Library ({songs.length} songs)</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">Your Library ({songs.length} songs)</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePlayAllSongs}
+                className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
+              >
+                <Shuffle className="w-4 h-4 mr-2" />
+                Play All
+              </Button>
+            </div>
+            
             <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-              {songs.map((song) => (
+              {songs.map((song, index) => (
                 <div
                   key={song.id}
                   className={`p-3 rounded-lg transition-all duration-200 hover:bg-white/10 group ${
@@ -269,6 +325,20 @@ const MusicPlayer = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Add to Queue Button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToQueue(song);
+                        }}
+                        className="text-blue-400 hover:bg-blue-400/20 w-8 h-8"
+                        title="Add to queue"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      
                       {/* Add to Playlist Button */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -281,7 +351,7 @@ const MusicPlayer = () => {
                               setSelectedSongForPlaylist(song);
                             }}
                           >
-                            <Plus className="h-4 w-4" />
+                            <FileText className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="bg-gray-800 border-gray-700">
@@ -319,6 +389,9 @@ const MusicPlayer = () => {
           </Card>
         </div>
       </div>
+      
+      {/* Queue Dialog */}
+      <QueueDialog />
     </div>
   );
 };

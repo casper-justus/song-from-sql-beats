@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Play, Pause, SkipBack, SkipForward, Heart } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Heart, List } from 'lucide-react';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,8 @@ import ResolvedCoverImage from './ResolvedCoverImage';
 export function BottomNavbar() {
   const {
     currentSong,
+    queue,
+    currentQueueIndex,
     isPlaying,
     currentTime,
     duration,
@@ -17,6 +19,7 @@ export function BottomNavbar() {
     togglePlay,
     playNext,
     playPrevious,
+    setShowQueueDialog,
   } = useMusicPlayer();
 
   const handleLikeClick = () => {
@@ -52,6 +55,9 @@ export function BottomNavbar() {
         <div className="flex flex-col min-w-0">
           <p className="text-sm md:text-base font-bold text-gray-900 truncate">{currentSong.title || "Unknown Title"}</p>
           <p className="text-xs md:text-sm text-gray-700 truncate">{currentSong.artist || "Unknown Artist"}</p>
+          <p className="text-xs text-gray-600">
+            {currentQueueIndex + 1} of {queue.length}
+          </p>
         </div>
       </div>
 
@@ -68,8 +74,19 @@ export function BottomNavbar() {
         </Button>
       </div>
 
-      {/* Like Button */}
-      <div className="flex-shrink-0">
+      {/* Right side buttons */}
+      <div className="flex items-center space-x-2 flex-shrink-0">
+        {/* Queue Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowQueueDialog(true)}
+          className="text-gray-800 hover:bg-black/10 rounded-full w-8 h-8 md:w-10 md:h-10 transition-all"
+        >
+          <List className="w-4 h-4 md:w-5 md:h-5" />
+        </Button>
+        
+        {/* Like Button */}
         <Button
           variant="ghost"
           size="icon"
@@ -83,11 +100,11 @@ export function BottomNavbar() {
         </Button>
       </div>
 
-      {/* Progress Bar - Fixed positioning and overflow */}
-      <div className="absolute bottom-1 left-6 right-6 h-1 bg-black/10 rounded-full">
+      {/* Progress Bar - Properly contained within the navbar */}
+      <div className="absolute bottom-1 left-4 right-4 h-1 bg-black/10 rounded-full overflow-hidden">
         <div
           className="h-full bg-gray-800 transition-all duration-300 rounded-full"
-          style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+          style={{ width: `${Math.min(Math.max(progressPercentage, 0), 100)}%` }}
         />
       </div>
     </div>

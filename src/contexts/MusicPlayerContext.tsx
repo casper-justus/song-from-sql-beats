@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useRef, useEffect, ReactNode, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser, useSession } from '@clerk/clerk-react';
@@ -11,6 +10,8 @@ type Playlist = Tables<'playlists'>;
 interface MusicPlayerContextType {
   songs: Song[];
   currentSong: Song | null;
+  queue: Song[];
+  currentQueueIndex: number;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -18,16 +19,24 @@ interface MusicPlayerContextType {
   isLoadingSongs: boolean;
   lyrics: string;
   showLyricsDialog: boolean;
+  showQueueDialog: boolean;
   isCurrentSongLiked: boolean;
   likedSongIds: Set<string>;
   playlists: Playlist[];
+  preloadProgress: number;
   togglePlay: () => void;
   playNext: () => void;
   playPrevious: () => void;
   selectSong: (song: Song) => void;
+  playFromQueue: (index: number) => void;
+  setQueue: (songs: Song[], startIndex?: number) => void;
+  addToQueue: (song: Song) => void;
+  removeFromQueue: (index: number) => void;
+  clearQueue: () => void;
   seek: (time: number) => void;
   setVolumeLevel: (level: number) => void;
   setShowLyricsDialog: (show: boolean) => void;
+  setShowQueueDialog: (show: boolean) => void;
   toggleLikeSong: (songId: string, videoId: string) => Promise<void>;
   createPlaylist: (name: string, description?: string) => Promise<void>;
   addSongToPlaylist: (playlistId: string, songId: string) => Promise<void>;
@@ -40,10 +49,10 @@ const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(und
 
 // Enhanced global cache for resolved media URLs with expiration
 const globalMediaCache = new Map<string, { url: string; expires: number }>();
-const CACHE_DURATION = 45 * 60 * 1000; // 45 minutes (R2 signed URLs are valid for 1 hour)
+const CACHE_DURATION = 45 * 60 * 1000; // 45 minutes
 
-// Preload cache for next songs
-const preloadCache = new Map<string, string>();
+// Preload queue for faster access
+const preloadQueue = new Map<string, Promise<string | null>>();
 
 /**
  * Constructs the proper R2 key for music files by adding the 'music/' prefix
@@ -58,12 +67,14 @@ function constructMusicR2Key(storagePath: string): string {
 /**
  * Save player state to localStorage
  */
-function savePlayerState(songId: string, currentTime: number, volume: number) {
+function savePlayerState(songId: string, currentTime: number, volume: number, queue: Song[], queueIndex: number) {
   try {
     localStorage.setItem('musicPlayer_state', JSON.stringify({
       lastSongId: songId,
       lastProgress: currentTime,
       lastVolume: volume,
+      lastQueue: queue,
+      lastQueueIndex: queueIndex,
       timestamp: Date.now()
     }));
   } catch (error) {
@@ -74,7 +85,13 @@ function savePlayerState(songId: string, currentTime: number, volume: number) {
 /**
  * Load player state from localStorage
  */
-function loadPlayerState(): { lastSongId: string | null; lastProgress: number; lastVolume: number } | null {
+function loadPlayerState(): { 
+  lastSongId: string | null; 
+  lastProgress: number; 
+  lastVolume: number; 
+  lastQueue: Song[]; 
+  lastQueueIndex: number; 
+} | null {
   try {
     const saved = localStorage.getItem('musicPlayer_state');
     if (!saved) return null;
@@ -89,7 +106,9 @@ function loadPlayerState(): { lastSongId: string | null; lastProgress: number; l
     return {
       lastSongId: state.lastSongId,
       lastProgress: state.lastProgress || 0,
-      lastVolume: state.lastVolume || 0.75
+      lastVolume: state.lastVolume || 0.75,
+      lastQueue: state.lastQueue || [],
+      lastQueueIndex: state.lastQueueIndex || 0
     };
   } catch (error) {
     console.error('Failed to load player state:', error);
@@ -103,6 +122,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const { supabase } = useClerkSupabase();
   const [songs, setSongs] = useState<Song[]>([]);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [queue, setQueueState] = useState<Song[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
   const [likedSongIds, setLikedSongIds] = useState<Set<string>>(new Set());
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -111,28 +132,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [volume, setVolumeState] = useState(0.75);
   const [lyrics, setLyrics] = useState('');
   const [showLyricsDialog, setShowLyricsDialog] = useState(false);
+  const [showQueueDialog, setShowQueueDialog] = useState(false);
+  const [preloadProgress, setPreloadProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [isResolvingUrl, setIsResolvingUrl] = useState(false);
   const queryClient = useQueryClient();
-
-  // Load saved state on mount
-  useEffect(() => {
-    const savedState = loadPlayerState();
-    if (savedState) {
-      setVolumeState(savedState.lastVolume);
-    }
-  }, []);
-
-  // Save state periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (currentSong && currentTime > 0) {
-        savePlayerState(currentSong.id, currentTime, volume);
-      }
-    }, 10000); // Save every 10 seconds
-
-    return () => clearInterval(interval);
-  }, [currentSong, currentTime, volume]);
 
   // Enhanced URL resolution with better caching
   const resolveMediaUrl = useCallback(async (fileKey: string, isAudioFile: boolean = false): Promise<string | null> => {
@@ -168,14 +171,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response error:', response.status, errorText);
         throw new Error(`Failed to resolve URL: ${response.status}`);
       }
       
       const data = await response.json();
       if (data && data.signedUrl) {
-        // Cache with expiration
         globalMediaCache.set(fileKey, {
           url: data.signedUrl,
           expires: Date.now() + CACHE_DURATION
@@ -189,26 +189,34 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [session]);
 
-  // Preload next song's audio URL
-  const preloadNextSong = useCallback(async (song: Song) => {
-    if (!song || preloadCache.has(song.id)) return;
-    
-    try {
+  // Preload multiple songs efficiently
+  const preloadSongs = useCallback(async (songsToPreload: Song[]) => {
+    const preloadPromises = songsToPreload.map(async (song, index) => {
       const audioFileKey = song.storage_path || song.file_url;
-      const resolvedUrl = await resolveMediaUrl(audioFileKey, true);
-      if (resolvedUrl) {
-        preloadCache.set(song.id, resolvedUrl);
-        // Preload the audio
-        const audio = new Audio();
-        audio.preload = 'metadata';
-        audio.src = resolvedUrl;
+      if (!audioFileKey || preloadQueue.has(song.id)) return;
+
+      const preloadPromise = resolveMediaUrl(audioFileKey, true);
+      preloadQueue.set(song.id, preloadPromise);
+
+      try {
+        const resolvedUrl = await preloadPromise;
+        if (resolvedUrl) {
+          // Preload the audio metadata
+          const audio = new Audio();
+          audio.preload = 'metadata';
+          audio.src = resolvedUrl;
+          
+          setPreloadProgress(((index + 1) / songsToPreload.length) * 100);
+        }
+      } catch (error) {
+        console.error('Error preloading song:', song.title, error);
       }
-    } catch (error) {
-      console.error('Error preloading song:', error);
-    }
+    });
+
+    await Promise.allSettled(preloadPromises);
+    setPreloadProgress(100);
   }, [resolveMediaUrl]);
 
-  // Fetch songs with better error handling
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
     queryKey: ['songs'],
     queryFn: async () => {
@@ -221,11 +229,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       return data || [];
     },
     enabled: !!user && !!supabase,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     retry: 2
   });
 
-  // Fetch playlists with better caching
   const { data: fetchedPlaylists = [] } = useQuery({
     queryKey: ['playlists', user?.id],
     queryFn: async () => {
@@ -238,19 +245,24 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       return data || [];
     },
     enabled: !!user && !!supabase,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
     if (songsError) console.error("Error in fetchedSongs query:", songsError);
     setSongs(fetchedSongs);
-  }, [fetchedSongs, songsError]);
+    
+    // Preload first 10 songs when songs are loaded
+    if (fetchedSongs.length > 0) {
+      preloadSongs(fetchedSongs.slice(0, 10));
+    }
+  }, [fetchedSongs, songsError, preloadSongs]);
 
   useEffect(() => {
     setPlaylists(fetchedPlaylists);
   }, [fetchedPlaylists]);
 
-  // Fetch liked songs with better caching
+  // Fetch liked songs
   useEffect(() => {
     const fetchLiked = async () => {
       if (!user || !supabase) {
@@ -270,12 +282,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const isCurrentSongLiked = currentSong ? likedSongIds.has(currentSong.id) : false;
 
-  // Fixed toggle like song with proper error handling
   const toggleLikeSong = async (songId: string, videoId: string) => {
     if (!user || !songId || !supabase) return;
     
     const isLiked = likedSongIds.has(songId);
-    console.log('Toggling like for song:', songId, 'Currently liked:', isLiked);
     
     try {
       if (isLiked) {
@@ -285,17 +295,13 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
           .eq('user_id', user.id)
           .eq('song_id', songId);
         
-        if (error) {
-          console.error('Error unliking song:', error);
-          throw error;
-        }
+        if (error) throw error;
         
         setLikedSongIds(prev => {
           const next = new Set(prev);
           next.delete(songId);
           return next;
         });
-        console.log('Song unliked successfully');
       } else {
         const { error } = await supabase
           .from('user_liked_songs')
@@ -305,23 +311,17 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
             liked_at: new Date().toISOString()
           });
         
-        if (error) {
-          console.error('Error liking song:', error);
-          throw error;
-        }
+        if (error) throw error;
         
         setLikedSongIds(prev => new Set(prev).add(songId));
-        console.log('Song liked successfully');
       }
       
-      // Refresh liked songs data
       queryClient.invalidateQueries({ queryKey: ['likedSongs', user.id] });
     } catch (error) {
       console.error('Error in toggleLikeSong:', error);
     }
   };
 
-  // Playlist functions
   const createPlaylist = async (name: string, description?: string) => {
     if (!user || !supabase) return;
     const { error } = await supabase.from('playlists').insert({
@@ -345,7 +345,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (error) {
       console.error('Error adding song to playlist:', error);
     } else {
-      // Invalidate playlist queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['playlistSongs', playlistId] });
     }
   };
@@ -358,7 +357,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (error) {
       console.error('Error removing song from playlist:', error);
     } else {
-      // Invalidate playlist queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['playlistSongs', playlistId] });
     }
   };
@@ -373,9 +371,117 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
-  // Audio event listeners
+  // Queue management functions
+  const setQueue = useCallback((newQueue: Song[], startIndex: number = 0) => {
+    setQueueState(newQueue);
+    setCurrentQueueIndex(startIndex);
+    if (newQueue.length > 0) {
+      setCurrentSong(newQueue[startIndex]);
+      // Preload next few songs in queue
+      const songsToPreload = newQueue.slice(startIndex, startIndex + 5);
+      preloadSongs(songsToPreload);
+    }
+  }, [preloadSongs]);
+
+  const addToQueue = useCallback((song: Song) => {
+    setQueueState(prev => [...prev, song]);
+  }, []);
+
+  const removeFromQueue = useCallback((index: number) => {
+    setQueueState(prev => {
+      const newQueue = [...prev];
+      newQueue.splice(index, 1);
+      
+      // Adjust current index if needed
+      if (index < currentQueueIndex) {
+        setCurrentQueueIndex(prev => prev - 1);
+      } else if (index === currentQueueIndex && newQueue.length > 0) {
+        const nextIndex = Math.min(currentQueueIndex, newQueue.length - 1);
+        setCurrentQueueIndex(nextIndex);
+        setCurrentSong(newQueue[nextIndex]);
+      }
+      
+      return newQueue;
+    });
+  }, [currentQueueIndex]);
+
+  const clearQueue = useCallback(() => {
+    setQueueState([]);
+    setCurrentQueueIndex(0);
+  }, []);
+
+  const playFromQueue = useCallback(async (index: number) => {
+    if (index >= 0 && index < queue.length) {
+      setCurrentQueueIndex(index);
+      const song = queue[index];
+      setCurrentSong(song);
+      
+      // Auto-play the selected song
+      setTimeout(async () => {
+        if (audioRef.current) {
+          const audioFileKey = song.storage_path || song.file_url;
+          
+          // Check preload queue first
+          let resolvedSrc: string | null = null;
+          const preloadPromise = preloadQueue.get(song.id);
+          if (preloadPromise) {
+            resolvedSrc = await preloadPromise;
+          } else {
+            resolvedSrc = await resolveMediaUrl(audioFileKey, true);
+          }
+
+          if (resolvedSrc && audioRef.current) {
+            try {
+              audioRef.current.src = resolvedSrc;
+              await audioRef.current.play();
+              setIsPlaying(true);
+            } catch (error) {
+              console.error('Error playing song from queue:', error);
+              setIsPlaying(false);
+            }
+          }
+        }
+      }, 100);
+    }
+  }, [queue, resolveMediaUrl]);
+
+  // Load saved state on mount
   useEffect(() => {
-    const audio = audioRef.current;
+    const savedState = loadPlayerState();
+    if (savedState && songs.length > 0) {
+      setVolumeState(savedState.lastVolume);
+      if (savedState.lastQueue.length > 0) {
+        setQueueState(savedState.lastQueue);
+        setCurrentQueueIndex(savedState.lastQueueIndex);
+        const lastSong = songs.find(s => s.id === savedState.lastSongId);
+        if (lastSong) {
+          setCurrentSong(lastSong);
+          setTimeout(() => {
+            if (audioRef.current && savedState.lastProgress > 0) {
+              audioRef.current.currentTime = savedState.lastProgress;
+              setCurrentTime(savedState.lastProgress);
+            }
+          }, 500);
+        }
+      }
+    } else if (!currentSong && songs.length > 0) {
+      // Default to first song and create initial queue
+      setQueue(songs, 0);
+    }
+  }, [songs, currentSong]);
+
+  // Save state periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (currentSong && currentTime > 0) {
+        savePlayerState(currentSong.id, currentTime, volume, queue, currentQueueIndex);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [currentSong, currentTime, volume, queue, currentQueueIndex]);
+
+  const audio = audioRef.current;
     if (!audio) return;
 
     const updateTime = () => setCurrentTime(audio.currentTime);
@@ -404,14 +510,12 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
   }, [currentSong]);
 
-  // Volume effect
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
     }
   }, [volume]);
 
-  // Enhanced lyrics fetching
   useEffect(() => {
     const fetchLyricsContent = async () => {
       if (!currentSong || !currentSong.lyrics_url) {
@@ -447,9 +551,9 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [currentSong, resolveMediaUrl]);
 
-  // Fixed selectSong function to properly handle different songs
+  // Enhanced selectSong function
   const selectSong = useCallback(async (song: Song) => {
-    console.log('Selecting song:', song.title, 'ID:', song.id);
+    console.log('Selecting song:', song.title);
     
     // Stop current audio and reset
     if (audioRef.current) {
@@ -461,33 +565,31 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     setIsPlaying(false);
     setCurrentSong(song);
 
-    // Preload next song
-    const currentIndex = songs.findIndex(s => s.id === song.id);
-    if (currentIndex !== -1 && currentIndex < songs.length - 1) {
-      preloadNextSong(songs[currentIndex + 1]);
+    // Update queue index if song is in current queue
+    const queueIndex = queue.findIndex(s => s.id === song.id);
+    if (queueIndex !== -1) {
+      setCurrentQueueIndex(queueIndex);
+    } else {
+      // Create new queue starting from selected song
+      const songIndex = songs.findIndex(s => s.id === song.id);
+      if (songIndex !== -1) {
+        const newQueue = [...songs.slice(songIndex), ...songs.slice(0, songIndex)];
+        setQueue(newQueue, 0);
+      }
     }
 
-    // Auto-play the selected song after a short delay
+    // Auto-play the selected song
     setTimeout(async () => {
-      console.log('Auto-playing selected song:', song.title);
-      if (audioRef.current && currentSong?.id === song.id) {
+      if (audioRef.current) {
         const audioFileKey = song.storage_path || song.file_url;
         
-        // Check preload cache first
-        let resolvedSrc = preloadCache.get(song.id);
-        
-        if (!resolvedSrc) {
-          // Check main cache
-          const cached = globalMediaCache.get(audioFileKey);
-          if (cached && Date.now() < cached.expires) {
-            resolvedSrc = cached.url;
-          }
-        }
-
-        if (!resolvedSrc) {
-          setIsResolvingUrl(true);
+        // Check preload queue first
+        let resolvedSrc: string | null = null;
+        const preloadPromise = preloadQueue.get(song.id);
+        if (preloadPromise) {
+          resolvedSrc = await preloadPromise;
+        } else {
           resolvedSrc = await resolveMediaUrl(audioFileKey, true);
-          setIsResolvingUrl(false);
         }
 
         if (resolvedSrc && audioRef.current) {
@@ -501,32 +603,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
           }
         }
       }
-    }, 200);
-  }, [songs, preloadNextSong, resolveMediaUrl, currentSong]);
-
-  // Auto-select first song or restore last played song
-  useEffect(() => {
-    if (!currentSong && songs.length > 0 && !isLoadingSongs) {
-      const savedState = loadPlayerState();
-      if (savedState && savedState.lastSongId) {
-        const lastSong = songs.find(s => s.id === savedState.lastSongId);
-        if (lastSong) {
-          setCurrentSong(lastSong);
-          setTimeout(() => {
-            if (audioRef.current && savedState.lastProgress > 0) {
-              audioRef.current.currentTime = savedState.lastProgress;
-              setCurrentTime(savedState.lastProgress);
-            }
-          }, 500);
-          return;
-        }
-      }
-      setCurrentSong(songs[0]);
-    }
-  }, [songs, currentSong, isLoadingSongs]);
+    }, 100);
+  }, [queue, songs, resolveMediaUrl, setQueue]);
 
   const togglePlay = useCallback(async () => {
-    if (!audioRef.current || !currentSong || isResolvingUrl) return;
+    if (!audioRef.current || !currentSong) return;
 
     if (isPlaying) {
       audioRef.current.pause();
@@ -534,21 +615,13 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     } else {
       const audioFileKey = currentSong.storage_path || currentSong.file_url;
       
-      // Check preload cache first
-      let resolvedSrc = preloadCache.get(currentSong.id);
-      
-      if (!resolvedSrc) {
-        // Check main cache
-        const cached = globalMediaCache.get(audioFileKey);
-        if (cached && Date.now() < cached.expires) {
-          resolvedSrc = cached.url;
-        }
-      }
-
-      if (!resolvedSrc) {
-        setIsResolvingUrl(true);
+      // Check preload queue first
+      let resolvedSrc: string | null = null;
+      const preloadPromise = preloadQueue.get(currentSong.id);
+      if (preloadPromise) {
+        resolvedSrc = await preloadPromise;
+      } else {
         resolvedSrc = await resolveMediaUrl(audioFileKey, true);
-        setIsResolvingUrl(false);
       }
 
       if (resolvedSrc) {
@@ -562,32 +635,21 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
           console.error('Error playing audio:', error);
           setIsPlaying(false);
         }
-      } else {
-        console.error("Could not resolve audio URL for playback.");
-        setIsPlaying(false);
       }
     }
-  }, [isPlaying, currentSong, resolveMediaUrl, isResolvingUrl]);
+  }, [isPlaying, currentSong, resolveMediaUrl]);
 
-  // Fixed playNext to select the correct next song
   const playNext = useCallback(() => {
-    if (!currentSong || songs.length === 0) return;
-    const currentIndex = songs.findIndex(s => s.id === currentSong.id);
-    const nextIndex = (currentIndex + 1) % songs.length;
-    const nextSong = songs[nextIndex];
-    console.log('Playing next song:', nextSong.title, 'Current index:', currentIndex, 'Next index:', nextIndex);
-    selectSong(nextSong);
-  }, [currentSong, songs, selectSong]);
+    if (queue.length === 0) return;
+    const nextIndex = (currentQueueIndex + 1) % queue.length;
+    playFromQueue(nextIndex);
+  }, [queue, currentQueueIndex, playFromQueue]);
 
-  // Fixed playPrevious to select the correct previous song
   const playPrevious = useCallback(() => {
-    if (!currentSong || songs.length === 0) return;
-    const currentIndex = songs.findIndex(s => s.id === currentSong.id);
-    const prevIndex = (currentIndex - 1 + songs.length) % songs.length;
-    const prevSong = songs[prevIndex];
-    console.log('Playing previous song:', prevSong.title, 'Current index:', currentIndex, 'Prev index:', prevIndex);
-    selectSong(prevSong);
-  }, [currentSong, songs, selectSong]);
+    if (queue.length === 0) return;
+    const prevIndex = (currentQueueIndex - 1 + queue.length) % queue.length;
+    playFromQueue(prevIndex);
+  }, [queue, currentQueueIndex, playFromQueue]);
 
   const seek = useCallback((time: number) => {
     if (audioRef.current) {
@@ -604,6 +666,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     <MusicPlayerContext.Provider value={{
       songs,
       currentSong,
+      queue,
+      currentQueueIndex,
       isPlaying,
       currentTime,
       duration,
@@ -611,16 +675,24 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       isLoadingSongs,
       lyrics,
       showLyricsDialog,
+      showQueueDialog,
       isCurrentSongLiked,
       likedSongIds,
       playlists,
+      preloadProgress,
       togglePlay,
       playNext,
       playPrevious,
       selectSong,
+      playFromQueue,
+      setQueue,
+      addToQueue,
+      removeFromQueue,
+      clearQueue,
       seek,
       setVolumeLevel,
       setShowLyricsDialog,
+      setShowQueueDialog,
       toggleLikeSong,
       createPlaylist,
       addSongToPlaylist,
