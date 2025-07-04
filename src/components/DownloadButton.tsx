@@ -44,7 +44,7 @@ export function DownloadButton({ song, className }: DownloadButtonProps) {
 
     const success = await downloadManager.downloadSong(song, session);
     
-    if (!success && downloadStatus === 'downloading') {
+    if (!success && downloadStatus !== 'completed') {
       setDownloadStatus('error');
       setTimeout(() => setDownloadStatus('idle'), 3000);
     }
