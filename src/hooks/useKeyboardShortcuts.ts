@@ -46,6 +46,19 @@ export function useKeyboardShortcuts() {
             playPrevious();
           }
           break;
+        // Standard Media Keys
+        case 'MediaPlayPause':
+          event.preventDefault();
+          if (currentSong) togglePlay();
+          break;
+        case 'MediaTrackNext':
+          event.preventDefault();
+          playNext();
+          break;
+        case 'MediaTrackPrevious':
+          event.preventDefault();
+          playPrevious();
+          break;
       }
     };
 

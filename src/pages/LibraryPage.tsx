@@ -132,36 +132,45 @@ export default function LibraryPage() {
           {playlists.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {playlists.map((playlist) => (
-                <Card key={playlist.id} className="bg-gray-800 border-gray-700 hover:bg-gray-750 transition-colors">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gray-700 rounded flex items-center justify-center">
-                          <Music className="w-6 h-6 text-gray-400" />
+                <Link to={`/playlist/${playlist.id}`} key={playlist.id} className="block hover:no-underline">
+                  <Card className="bg-gray-800 border-gray-700 hover:bg-gray-700/70 transition-colors h-full flex flex-col">
+                    <CardHeader className="pb-3 flex-grow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="w-12 h-12 bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
+                            <Music className="w-6 h-6 text-gray-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <CardTitle className="text-white text-lg truncate hover:text-yellow-400 transition-colors">
+                              {playlist.name}
+                            </CardTitle>
+                            {playlist.description && (
+                              <p className="text-gray-400 text-sm truncate mt-1">{playlist.description}</p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <CardTitle className="text-white text-lg truncate">{playlist.name}</CardTitle>
-                          {playlist.description && (
-                            <p className="text-gray-400 text-sm truncate">{playlist.description}</p>
-                          )}
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.preventDefault(); // Prevent navigation when clicking delete
+                            e.stopPropagation();
+                            handleDeletePlaylist(playlist.id);
+                          }}
+                          className="text-gray-400 hover:text-red-400 w-8 h-8 flex-shrink-0"
+                          title="Delete playlist"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeletePlaylist(playlist.id)}
-                        className="text-gray-400 hover:text-red-400 w-8 h-8"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-500 text-sm">
-                      Created {new Date(playlist.created_at).toLocaleDateString()}
-                    </p>
-                  </CardContent>
-                </Card>
+                    </CardHeader>
+                    <CardContent className="pt-2">
+                      <p className="text-gray-500 text-xs">
+                        Created {new Date(playlist.created_at).toLocaleDateString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </div>
           ) : (

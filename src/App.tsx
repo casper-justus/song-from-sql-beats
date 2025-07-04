@@ -18,6 +18,7 @@ import LibraryPage from "./pages/LibraryPage";
 import LikedSongsPage from "./pages/LikedSongsPage";
 import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
+import PlaylistDetailPage from "./pages/PlaylistDetailPage"; // Added import
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
 import { BottomNavbar } from "./components/BottomNavbar";
 import { BottomNavigation } from "./components/BottomNavigation";
@@ -63,6 +64,7 @@ const AppContent = () => {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/liked" element={<LikedSongsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/playlist/:playlistId" element={<PlaylistDetailPage />} /> {/* Added route */}
           </Route>
 
           <Route path="/search" element={<SearchPage />} />

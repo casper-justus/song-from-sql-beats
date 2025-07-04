@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Progress } from '@/components/ui/progress';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Tables } from '@/integrations/supabase/types';
+import { Lrc, LrcLine } from 'react-lrc'; // Added import
 import ResolvedCoverImage from './ResolvedCoverImage';
 import { QueueDialog } from './QueueDialog';
 import { DownloadButton } from './DownloadButton';
@@ -260,8 +261,31 @@ const MusicPlayer = () => {
                   <DialogHeader>
                     <DialogTitle>{currentSong.title} - Lyrics</DialogTitle>
                   </DialogHeader>
-                  <div className="whitespace-pre-wrap text-sm py-4">
-                    {lyrics || "Lyrics not available or loading..."}
+                  <div className="py-4 text-sm leading-relaxed" style={{ minHeight: '200px', maxHeight: '60vh', overflowY: 'auto' }}>
+                    {lyrics && lyrics.trim() ? (
+                      <Lrc
+                        lrc={lyrics}
+                        currentMillisecond={currentTime * 1000}
+                        lineRenderer={({ index, active, line }) => (
+                          <p
+                            key={index}
+                            className={cn(
+                              "transition-all duration-300 ease-in-out",
+                              active ? "text-yellow-400 font-semibold scale-105" : "text-gray-300 opacity-70",
+                              "my-3 p-1 rounded" // Added my-3 for more vertical spacing
+                            )}
+                          >
+                            {line.content}
+                          </p>
+                        )}
+                        verticalSpace={true} // Makes active line stay in middle
+                        onLineUpdate={({index, line}) => {
+                          // console.log('Current lyric line:', index, line?.content);
+                        }}
+                      />
+                    ) : (
+                      <p className="text-gray-400">Lyrics not available or loading...</p>
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>

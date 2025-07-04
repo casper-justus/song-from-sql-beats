@@ -85,14 +85,15 @@
 
   body {
     @apply text-foreground;
-    background: linear-gradient(135deg, #0c4a3b 0%, #064e3b 25%, #1f2937 50%, #111827 75%, #0f172a 100%);
-    background-attachment: fixed;
+    /* background: linear-gradient(135deg, #0c4a3b 0%, #064e3b 25%, #1f2937 50%, #111827 75%, #0f172a 100%); */
+    /* background-attachment: fixed; */
     min-height: 100vh;
     position: relative;
+    background-color: #0f172a; /* Fallback background color */
   }
 
-  /* Ocean wave overlay */
-  body::before {
+  /* Ocean wave overlay - Commented out for dynamic background */
+  /* body::before {
     content: '';
     position: fixed;
     top: 0;
@@ -105,10 +106,10 @@
       radial-gradient(ellipse at 40% 40%, rgba(31, 41, 55, 0.2) 0%, transparent 50%);
     pointer-events: none;
     z-index: -1;
-  }
+  } */
 
-  /* Wave animation */
-  body::after {
+  /* Wave animation - Commented out for dynamic background */
+  /* body::after {
     content: '';
     position: fixed;
     bottom: 0;
@@ -125,7 +126,7 @@
     animation: wave 20s ease-in-out infinite;
     pointer-events: none;
     z-index: -1;
-  }
+  } */
 
   @keyframes wave {
     0%, 100% {
