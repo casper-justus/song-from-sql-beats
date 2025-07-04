@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,7 +22,14 @@ import { BottomNavbar } from "./components/BottomNavbar";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { DynamicBackground } from "./components/DynamicBackground";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 2,
+    },
+  },
+});
 
 const ConditionalBottomNavigation = () => {
   const { isSignedIn } = useUser();
@@ -35,7 +43,7 @@ const ConditionalBottomNavigation = () => {
 };
 
 const AppContent = () => (
-  <div className={`min-h-screen relative`}>
+  <div className="min-h-screen relative">
     <DynamicBackground />
     <div className="relative z-10">
       <Routes>
@@ -50,8 +58,8 @@ const AppContent = () => (
         </Route>
 
         <Route path="/search" element={<SearchPage />} />
-        <Route path="/terms" element={<div>Terms and Conditions Page (Placeholder)</div>} />
-        <Route path="/privacy" element={<div>Privacy Policy Page (Placeholder)</div>} />
+        <Route path="/terms" element={<div className="p-8 text-white">Terms and Conditions Page (Placeholder)</div>} />
+        <Route path="/privacy" element={<div className="p-8 text-white">Privacy Policy Page (Placeholder)</div>} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

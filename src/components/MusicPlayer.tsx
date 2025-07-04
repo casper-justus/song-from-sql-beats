@@ -12,6 +12,7 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Tables } from '@/integrations/supabase/types';
 import ResolvedCoverImage from './ResolvedCoverImage';
 import { QueueDialog } from './QueueDialog';
+import { DownloadButton } from './DownloadButton';
 
 type Song = Tables<'songs'>;
 
@@ -85,11 +86,12 @@ const MusicPlayer = () => {
 
   if (isLoadingSongs) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-white text-xl">Loading your music...</div>
+      <div className="flex flex-col items-center justify-center p-8 min-h-[60vh]">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mb-4"></div>
+        <div className="text-white text-xl mb-4">Loading your music...</div>
         {preloadProgress > 0 && preloadProgress < 100 && (
-          <div className="mt-4 w-64">
-            <p className="text-sm text-gray-400 mb-2">Preloading tracks...</p>
+          <div className="w-full max-w-md">
+            <p className="text-sm text-gray-400 mb-2 text-center">Preloading tracks... {Math.round(preloadProgress)}%</p>
             <Progress value={preloadProgress} className="w-full" />
           </div>
         )}
@@ -99,7 +101,7 @@ const MusicPlayer = () => {
 
   if (songs.length === 0) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center p-8 min-h-[60vh]">
         <div className="text-white text-center">
           <h2 className="text-2xl font-bold mb-4">No Songs Found</h2>
           <p className="text-lg">Your music library is empty.</p>
@@ -110,7 +112,7 @@ const MusicPlayer = () => {
 
   if (!currentSong && songs.length > 0) {
      return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center p-8 min-h-[60vh]">
         <div className="text-white text-center">
           <h2 className="text-2xl font-bold mb-4">Select a Song</h2>
           <p className="text-lg mb-4">Choose a song from your library to start playing.</p>
@@ -125,7 +127,7 @@ const MusicPlayer = () => {
 
   if (!currentSong) {
     return (
-         <div className="flex items-center justify-center p-8">
+         <div className="flex items-center justify-center p-8 min-h-[60vh]">
             <div className="text-white text-center">
               <h2 className="text-2xl font-bold mb-4">Music Unavailable</h2>
               <p className="text-lg">No song is currently selected or available.</p>
@@ -135,13 +137,13 @@ const MusicPlayer = () => {
   }
 
   return (
-    <div className="w-full">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="w-full px-2 sm:px-4 pb-32">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
           {/* Main Player UI Card */}
-          <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-6 md:p-8">
+          <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-4 sm:p-6 lg:p-8">
             <div className="text-center mb-6">
-              <div className="w-48 h-48 md:w-64 md:h-64 mx-auto mb-6 rounded-lg overflow-hidden shadow-2xl bg-gray-700">
+              <div className="w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 mx-auto mb-6 rounded-lg overflow-hidden shadow-2xl bg-gray-700">
                 <ResolvedCoverImage
                   imageKey={currentSong.cover_url}
                   videoId={currentSong.video_id}
@@ -150,16 +152,19 @@ const MusicPlayer = () => {
                 />
               </div>
               
-              <h2 className="text-2xl font-bold text-white mb-2">{currentSong.title || "Unknown Title"}</h2>
-              <p className="text-lg text-gray-300 mb-1">{currentSong.artist}</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 px-2">
+                {currentSong.title || "Unknown Title"}
+              </h2>
+              <p className="text-base sm:text-lg text-gray-300 mb-1 px-2">
+                {currentSong.artist}
+              </p>
               {currentSong.album && (
-                <p className="text-gray-400">{currentSong.album}</p>
+                <p className="text-gray-400 px-2">{currentSong.album}</p>
               )}
               {currentSong.year && (
                 <p className="text-gray-500 text-sm">{currentSong.year}</p>
               )}
               
-              {/* Queue info */}
               <p className="text-xs text-gray-500 mt-2">
                 {currentQueueIndex + 1} of {queue.length} in queue
               </p>
@@ -182,28 +187,28 @@ const MusicPlayer = () => {
             </div>
 
             {/* Controls */}
-            <div className="flex items-center justify-center gap-4 mb-6">
+            <div className="flex items-center justify-center gap-3 sm:gap-4 mb-6">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={playPrevious}
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12"
                 disabled={!currentSong}
               >
-                <SkipBack className="h-6 w-6" />
+                <SkipBack className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
               
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={togglePlay}
-                className="text-white hover:bg-white/20 w-16 h-16"
+                className="text-white hover:bg-white/20 w-14 h-14 sm:w-16 sm:h-16"
                 disabled={!currentSong}
               >
                 {isPlaying ? (
-                  <Pause className="h-8 w-8" />
+                  <Pause className="h-7 w-7 sm:h-8 sm:w-8" />
                 ) : (
-                  <Play className="h-8 w-8" />
+                  <Play className="h-7 w-7 sm:h-8 sm:w-8" />
                 )}
               </Button>
               
@@ -211,47 +216,44 @@ const MusicPlayer = () => {
                 variant="ghost"
                 size="icon"
                 onClick={playNext}
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12"
                 disabled={!currentSong}
               >
-                <SkipForward className="h-6 w-6" />
+                <SkipForward className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
 
-              {/* Like Button */}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleLikeClick}
                 className={cn(
-                  "text-white hover:bg-white/20",
+                  "text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12",
                   isCurrentSongLiked && "text-red-500"
                 )}
                 disabled={!currentSong}
               >
-                <Heart className={cn("h-6 w-6", isCurrentSongLiked && "fill-current")} />
+                <Heart className={cn("h-5 w-5 sm:h-6 sm:w-6", isCurrentSongLiked && "fill-current")} />
               </Button>
 
-              {/* Queue Button */}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowQueueDialog(true)}
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12"
                 disabled={!currentSong}
               >
-                <List className="h-6 w-6" />
+                <List className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
 
-              {/* Lyrics Button */}
               <Dialog open={showLyricsDialog} onOpenChange={setShowLyricsDialog}>
                 <DialogTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-white hover:bg-white/20"
+                    className="text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12"
                     disabled={!currentSong}
                   >
-                    <FileText className="h-6 w-6" />
+                    <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-gray-800 text-white border-gray-700">
@@ -276,19 +278,21 @@ const MusicPlayer = () => {
                 className="flex-1"
                 disabled={!currentSong}
               />
-              <span className="text-white text-sm w-10">{Math.round(volume)}%</span>
+              <span className="text-white text-sm w-12">{Math.round(volume)}%</span>
             </div>
           </Card>
 
           {/* Song List */}
-          <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-white">Your Library ({songs.length} songs)</h3>
+          <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+              <h3 className="text-lg sm:text-xl font-bold text-white">
+                Your Library ({songs.length} songs)
+              </h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handlePlayAllSongs}
-                className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
+                className="text-green-400 hover:text-green-300 hover:bg-green-400/10 self-start sm:self-auto"
               >
                 <Shuffle className="w-4 h-4 mr-2" />
                 Play All
@@ -305,7 +309,7 @@ const MusicPlayer = () => {
                 >
                   <div className="flex items-center gap-3">
                     <div 
-                      className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-gray-700 cursor-pointer"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded overflow-hidden flex-shrink-0 bg-gray-700 cursor-pointer"
                       onClick={() => selectSong(song)}
                     >
                       <ResolvedCoverImage
@@ -316,16 +320,23 @@ const MusicPlayer = () => {
                       />
                     </div>
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => selectSong(song)}>
-                      <p className={`font-medium truncate ${currentSong?.id === song.id ? 'text-green-500' : 'text-white'}`}>
+                      <p className={`font-medium truncate text-sm sm:text-base ${
+                        currentSong?.id === song.id ? 'text-green-500' : 'text-white'
+                      }`}>
                         {song.title || "Unknown Title"}
                       </p>
-                      <p className="text-gray-400 text-sm truncate">{song.artist}</p>
+                      <p className="text-gray-400 text-xs sm:text-sm truncate">
+                        {song.artist}
+                      </p>
                       {song.album && (
-                        <p className="text-gray-500 text-xs truncate">{song.album}</p>
+                        <p className="text-gray-500 text-xs truncate hidden sm:block">
+                          {song.album}
+                        </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {/* Add to Queue Button */}
+                    <div className="flex items-center gap-1 sm:gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DownloadButton song={song} className="w-7 h-7 sm:w-8 sm:h-8" />
+                      
                       <Button
                         variant="ghost"
                         size="icon"
@@ -333,25 +344,24 @@ const MusicPlayer = () => {
                           e.stopPropagation();
                           handleAddToQueue(song);
                         }}
-                        className="text-blue-400 hover:bg-blue-400/20 w-8 h-8"
+                        className="text-blue-400 hover:bg-blue-400/20 w-7 h-7 sm:w-8 sm:h-8"
                         title="Add to queue"
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                       </Button>
                       
-                      {/* Add to Playlist Button */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-white hover:bg-white/20 w-8 h-8"
+                            className="text-white hover:bg-white/20 w-7 h-7 sm:w-8 sm:h-8"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedSongForPlaylist(song);
                             }}
                           >
-                            <FileText className="h-4 w-4" />
+                            <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="bg-gray-800 border-gray-700">
@@ -373,7 +383,7 @@ const MusicPlayer = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                       
-                      <div className="text-right">
+                      <div className="text-right hidden lg:block">
                         {song.year && (
                           <span className="text-gray-400 text-sm">{song.year}</span>
                         )}
@@ -390,7 +400,6 @@ const MusicPlayer = () => {
         </div>
       </div>
       
-      {/* Queue Dialog */}
       <QueueDialog />
     </div>
   );

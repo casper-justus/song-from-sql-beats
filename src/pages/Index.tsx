@@ -1,58 +1,25 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
 import MusicPlayer from "@/components/MusicPlayer";
-import { useUser, useClerk } from '@clerk/clerk-react';
-import { Button } from '@/components/ui/button';
+import { useUser } from '@clerk/clerk-react';
 import { LockKeyhole } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 const Index = () => {
   const { isSignedIn, user, isLoaded } = useUser();
-  const { signOut } = useClerk();
 
   if (!isLoaded) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center text-white charcoal-bg wave-bg">
-        <p className="text-lg">Loading user session...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center text-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+        <p className="text-lg mt-4">Loading user session...</p>
       </div>
     );
   }
 
   return (
     <div className={`flex flex-col items-center justify-start min-h-screen p-4 text-white ${isSignedIn ? 'wave-bg' : 'charcoal-bg wave-bg'}`}>
-      {/* Minimal Top Navigation */}
-      <header className="w-full max-w-5xl mb-8 sticky top-0 z-40 bg-black/20 backdrop-blur-md rounded-b-lg">
-        <nav className="flex justify-between items-center py-4 px-6">
-          <Link to="/" className="text-xl font-bold text-white">MusicApp</Link>
-          
-          <div className="flex items-center space-x-3">
-            {isSignedIn && user ? (
-              <>
-                <span className="text-sm text-gray-300 hidden sm:inline">
-                  {user.fullName || user.emailAddresses[0]?.emailAddress}
-                </span>
-                <Button 
-                  variant="outline" 
-                  onClick={() => signOut()} 
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
-                >
-                  Sign Out
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button asChild variant="ghost" className="text-gray-300 hover:bg-gray-700 hover:text-white">
-                  <Link to="/signup">Sign Up</Link>
-                </Button>
-                <Button asChild className="bg-white text-black hover:bg-gray-200">
-                  <Link to="/login">Log In</Link>
-                </Button>
-              </>
-            )}
-          </div>
-        </nav>
-      </header>
-
       {/* Main Content */}
       {isSignedIn && user ? (
         <MusicPlayer />

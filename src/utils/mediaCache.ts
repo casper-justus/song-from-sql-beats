@@ -1,10 +1,12 @@
-// Enhanced global cache for resolved media URLs with expiration and device optimization
-const globalMediaCache = new Map<string, { url: string; expires: number; deviceType?: string }>();
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour (increased from 45 minutes)
 
-// Preload queue for faster access with priority management
+// Enhanced global cache for resolved media URLs with faster prefetching
+const globalMediaCache = new Map<string, { url: string; expires: number; deviceType?: string }>();
+const CACHE_DURATION = 90 * 60 * 1000; // Increased to 90 minutes
+
+// Enhanced preload queue with priority levels
 const preloadQueue = new Map<string, Promise<string | null>>();
-const priorityQueue = new Set<string>(); // High priority songs (current, next, previous)
+const priorityQueue = new Set<string>();
+const prefetchQueue = new Set<string>();
 
 // Device detection for optimized caching
 const getDeviceType = () => {
@@ -18,14 +20,14 @@ const getDeviceType = () => {
   return 'desktop';
 };
 
-// Network quality detection with more accurate assessment
+// Enhanced network quality detection
 const getNetworkQuality = (): 'slow' | 'fast' => {
   if ('connection' in navigator) {
     const connection = (navigator as any).connection;
-    if (connection.effectiveType === '4g' && connection.downlink > 2) {
+    if (connection.effectiveType === '4g' && connection.downlink > 3) {
       return 'fast';
     }
-    if (connection.effectiveType === '3g' && connection.downlink > 1) {
+    if (connection.effectiveType === '3g' && connection.downlink > 1.5) {
       return 'fast';
     }
   }
@@ -33,7 +35,7 @@ const getNetworkQuality = (): 'slow' | 'fast' => {
 };
 
 /**
- * Constructs the proper R2 key for music files by adding the 'music/' prefix
+ * Constructs the proper R2 key for music files
  */
 export function constructMusicR2Key(storagePath: string): string {
   if (storagePath.startsWith('music/')) {
@@ -43,7 +45,7 @@ export function constructMusicR2Key(storagePath: string): string {
 }
 
 /**
- * Enhanced URL resolution with better caching, retry logic, and priority handling
+ * Enhanced URL resolution with aggressive prefetching and caching
  */
 export async function resolveMediaUrl(
   fileKey: string, 
@@ -67,7 +69,7 @@ export async function resolveMediaUrl(
     return null;
   }
 
-  const maxRetries = priority === 'high' ? 3 : 2;
+  const maxRetries = priority === 'high' ? 4 : 2;
   let attempt = 0;
 
   while (attempt < maxRetries) {
@@ -83,7 +85,7 @@ export async function resolveMediaUrl(
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), priority === 'high' ? 5000 : 3000);
+      const timeoutId = setTimeout(() => controller.abort(), priority === 'high' ? 8000 : 5000);
 
       const response = await fetch(`https://aws.njahjustus.workers.dev/sign-r2?key=${encodeURIComponent(r2Key)}`, {
         headers: {
@@ -117,15 +119,99 @@ export async function resolveMediaUrl(
         console.error(`resolveMediaUrl error after ${maxRetries} attempts:`, error);
         return null;
       }
-      // Exponential backoff
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      // Exponential backoff with jitter
+      const backoffTime = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+      await new Promise(resolve => setTimeout(resolve, backoffTime));
     }
   }
   return null;
 }
 
 /**
- * Enhanced lyrics fetching with better caching and error handling
+ * Aggressive background prefetching for better performance
+ */
+export async function startBackgroundPrefetch(
+  songs: any[], 
+  resolveUrl: (key: string, isAudio: boolean, priority?: 'high' | 'normal') => Promise<string | null>,
+  currentIndex: number = 0
+) {
+  const networkQuality = getNetworkQuality();
+  const deviceType = getDeviceType();
+  
+  // Determine how many songs to prefetch based on device and network
+  let maxPrefetch = songs.length;
+  if (deviceType === 'mobile') {
+    maxPrefetch = networkQuality === 'fast' ? 12 : 6;
+  } else {
+    maxPrefetch = networkQuality === 'fast' ? 25 : 15;
+  }
+
+  // Prioritize songs around current position
+  const prefetchList = [];
+  
+  // Add current and next 3 songs as high priority
+  for (let i = 0; i < Math.min(4, songs.length); i++) {
+    const index = (currentIndex + i) % songs.length;
+    prefetchList.push({ song: songs[index], priority: 'high' as const, index });
+  }
+  
+  // Add previous 2 songs as high priority
+  for (let i = 1; i <= 2 && prefetchList.length < maxPrefetch; i++) {
+    const index = (currentIndex - i + songs.length) % songs.length;
+    if (!prefetchList.find(item => item.index === index)) {
+      prefetchList.push({ song: songs[index], priority: 'high' as const, index });
+    }
+  }
+  
+  // Fill remaining slots with normal priority
+  let remainingSlots = maxPrefetch - prefetchList.length;
+  for (let i = 4; i < songs.length && remainingSlots > 0; i++) {
+    const index = (currentIndex + i) % songs.length;
+    if (!prefetchList.find(item => item.index === index)) {
+      prefetchList.push({ song: songs[index], priority: 'normal' as const, index });
+      remainingSlots--;
+    }
+  }
+
+  // Start prefetching in batches to avoid overwhelming the network
+  const batchSize = networkQuality === 'fast' ? 5 : 3;
+  for (let i = 0; i < prefetchList.length; i += batchSize) {
+    const batch = prefetchList.slice(i, i + batchSize);
+    
+    const batchPromises = batch.map(async ({ song, priority }) => {
+      const audioFileKey = song.storage_path || song.file_url;
+      const coverKey = song.cover_url;
+      
+      if (audioFileKey && !prefetchQueue.has(song.id)) {
+        prefetchQueue.add(song.id);
+        const audioPromise = resolveUrl(audioFileKey, true, priority);
+        preloadQueue.set(song.id, audioPromise);
+        
+        if (priority === 'high') {
+          priorityQueue.add(song.id);
+        }
+      }
+      
+      // Also prefetch cover images
+      if (coverKey && !prefetchQueue.has(`cover-${song.id}`)) {
+        prefetchQueue.add(`cover-${song.id}`);
+        resolveUrl(coverKey, false, 'normal').catch(() => {
+          // Ignore cover prefetch errors
+        });
+      }
+    });
+
+    await Promise.allSettled(batchPromises);
+    
+    // Small delay between batches to prevent overwhelming
+    if (i + batchSize < prefetchList.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+}
+
+/**
+ * Enhanced lyrics fetching with better caching
  */
 export async function fetchLyricsContent(
   lyricsUrl: string,
@@ -156,14 +242,13 @@ export async function fetchLyricsContent(
       throw new Error("Could not resolve lyrics URL.");
     }
 
-    // Cache the resolved URL with shorter duration for lyrics
     globalMediaCache.set(cacheKey, {
       url: resolvedLyricsUrl,
       expires: Date.now() + (CACHE_DURATION / 2)
     });
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     const response = await fetch(resolvedLyricsUrl, {
       signal: controller.signal
@@ -184,83 +269,16 @@ export async function fetchLyricsContent(
 }
 
 /**
- * Optimized preloading with priority management
- */
-export async function preloadSongs(
-  songsToPreload: any[], 
-  resolveUrl: (key: string, isAudio: boolean, priority?: 'high' | 'normal') => Promise<string | null>,
-  setProgress: (progress: number) => void,
-  currentIndex: number = 0
-) {
-  const networkQuality = getNetworkQuality();
-  const deviceType = getDeviceType();
-  
-  // Adjust preload count based on device and network
-  let maxPreload = songsToPreload.length;
-  if (deviceType === 'mobile') {
-    maxPreload = Math.min(8, songsToPreload.length);
-  } else if (networkQuality === 'slow') {
-    maxPreload = Math.min(5, songsToPreload.length);
-  } else {
-    maxPreload = Math.min(15, songsToPreload.length);
-  }
-
-  // Prioritize current, next, and previous songs
-  const prioritizedSongs = [];
-  const regularSongs = [];
-
-  songsToPreload.forEach((song, index) => {
-    const isPriority = Math.abs(index - currentIndex) <= 2; // Current + 2 next/prev
-    if (isPriority) {
-      prioritizedSongs.push({ song, index, priority: 'high' as const });
-    } else if (index < maxPreload) {
-      regularSongs.push({ song, index, priority: 'normal' as const });
-    }
-  });
-
-  const allSongs = [...prioritizedSongs, ...regularSongs];
-  
-  const preloadPromises = allSongs.map(async ({ song, index, priority }) => {
-    const audioFileKey = song.storage_path || song.file_url;
-    if (!audioFileKey || preloadQueue.has(song.id)) return;
-
-    const preloadPromise = resolveUrl(audioFileKey, true, priority);
-    preloadQueue.set(song.id, preloadPromise);
-
-    if (priority === 'high') {
-      priorityQueue.add(song.id);
-    }
-
-    try {
-      const resolvedUrl = await preloadPromise;
-      if (resolvedUrl && deviceType !== 'mobile') {
-        // Only preload audio metadata on non-mobile devices to save bandwidth
-        const audio = new Audio();
-        audio.preload = 'metadata';
-        audio.src = resolvedUrl;
-      }
-      
-      setProgress(((index + 1) / allSongs.length) * 100);
-    } catch (error) {
-      console.error('Error preloading song:', song.title, error);
-    }
-  });
-
-  await Promise.allSettled(preloadPromises);
-  setProgress(100);
-}
-
-/**
- * Enhanced cache optimization with better memory management
+ * Optimized cache management with better memory efficiency
  */
 export function optimizeCache() {
   const deviceType = getDeviceType();
-  const maxCacheSize = deviceType === 'mobile' ? 75 : 300;
+  const maxCacheSize = deviceType === 'mobile' ? 100 : 400;
   
   if (globalMediaCache.size > maxCacheSize) {
     const entries = Array.from(globalMediaCache.entries());
     
-    // Sort by priority (keep high priority items) and expiration
+    // Sort by priority and expiration
     entries.sort((a, b) => {
       const aIsPriority = priorityQueue.has(a[0].split('-')[0]);
       const bIsPriority = priorityQueue.has(b[0].split('-')[0]);
@@ -271,8 +289,8 @@ export function optimizeCache() {
       return a[1].expires - b[1].expires;
     });
     
-    // Remove oldest 30% of non-priority entries
-    const toRemove = Math.floor(entries.length * 0.3);
+    // Remove oldest 25% of non-priority entries
+    const toRemove = Math.floor(entries.length * 0.25);
     let removed = 0;
     
     for (const [key] of entries) {
@@ -294,7 +312,7 @@ export function optimizeCache() {
   }
 }
 
-// Optimize cache more frequently for better performance
-setInterval(optimizeCache, 3 * 60 * 1000); // Every 3 minutes
+// More frequent cache optimization for better performance
+setInterval(optimizeCache, 2 * 60 * 1000); // Every 2 minutes
 
 export { globalMediaCache, preloadQueue, priorityQueue };
