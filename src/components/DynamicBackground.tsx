@@ -5,7 +5,7 @@ import { resolveMediaUrl } from '@/utils/mediaCache';
 import { useSession } from '@clerk/clerk-react';
 
 export function DynamicBackground() {
-  const { currentSong, isPlaying, currentTime } = useMusicPlayer();
+  const { currentSong, isPlaying, currentTime, audioRef } = useMusicPlayer(); // Added audioRef
   const { session } = useSession();
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [dominantColors, setDominantColors] = useState<string[]>(['#1a1a1a', '#2a2a2a']);
@@ -79,7 +79,129 @@ export function DynamicBackground() {
     return Math.max(0.2, Math.min(1, intensity));
   };
 
-  const visualizerIntensity = getVisualizerIntensity();
+  // const visualizerIntensity = getVisualizerIntensity(); // Old simulated visualizer
+
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const audioContextRef = React.useRef<AudioContext | null>(null);
+  const analyserRef = React.useRef<AnalyserNode | null>(null);
+  const sourceRef = React.useRef<MediaElementAudioSourceNode | null>(null);
+  const dataArrayRef = React.useRef<Uint8Array | null>(null);
+  const animationFrameIdRef = React.useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isPlaying && audioRef?.current && currentSong && !audioContextRef.current) {
+      try {
+        const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioContextRef.current = context;
+        analyserRef.current = context.createAnalyser();
+        analyserRef.current.fftSize = 256; // Determines number of bars (fftSize/2)
+
+        // Check if sourceRef already exists and disconnect it to avoid multiple sources for the same element
+        if (sourceRef.current) {
+            sourceRef.current.disconnect();
+        }
+        sourceRef.current = context.createMediaElementSource(audioRef.current);
+
+        sourceRef.current.connect(analyserRef.current);
+        analyserRef.current.connect(context.destination); // Connect analyser to output to hear sound
+
+        dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
+      } catch (e) {
+        console.error("Error setting up Web Audio API for visualizer:", e);
+        // Fallback or disable visualizer if setup fails
+        if (audioContextRef.current) {
+            audioContextRef.current.close().catch(console.error);
+            audioContextRef.current = null;
+        }
+        analyserRef.current = null;
+        sourceRef.current = null;
+        return;
+      }
+    } else if (!isPlaying && audioContextRef.current) {
+      // Clean up Web Audio API resources when not playing or song changes
+      // audioContextRef.current.close().catch(console.error); // Closing context stops audio playback abruptly.
+      // Instead, just disconnect the nodes if we want to keep the context for next play.
+      // For simplicity now, we'll rely on full re-init on next play.
+      // If currentSong is null, it means playback stopped, so cleanup.
+      if (!currentSong && audioContextRef.current) {
+        sourceRef.current?.disconnect();
+        analyserRef.current?.disconnect();
+        // audioContextRef.current.close().catch(console.error); // This might be too aggressive if just pausing
+        audioContextRef.current = null; // Signal to re-init
+        analyserRef.current = null;
+        sourceRef.current = null;
+        if (animationFrameIdRef.current) {
+          cancelAnimationFrame(animationFrameIdRef.current);
+        }
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
+      // Consider more robust cleanup if context/nodes persist across song changes
+      // For now, this effect re-runs on isPlaying or currentSong change
+    };
+  }, [isPlaying, currentSong, audioRef]);
+
+
+  useEffect(() => {
+    const drawVisualizer = () => {
+      if (!analyserRef.current || !canvasRef.current || !dataArrayRef.current) {
+        animationFrameIdRef.current = requestAnimationFrame(drawVisualizer);
+        return;
+      }
+
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const bufferLength = analyserRef.current.frequencyBinCount;
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let barHeight;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        barHeight = dataArrayRef.current[i] * (canvas.height / 255) * 0.8; // Scale bar height
+
+        // Simple white bars for now
+        ctx.fillStyle = `rgba(255, 255, 255, ${barHeight / canvas.height * 1.5 + 0.2})`; // Opacity based on height
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+        x += barWidth + 1; // Bar width + spacing
+      }
+      animationFrameIdRef.current = requestAnimationFrame(drawVisualizer);
+    };
+
+    if (isPlaying && analyserRef.current) {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
+      drawVisualizer();
+    } else {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
+      // Optionally clear canvas when not playing
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    return () => {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
+    };
+  }, [isPlaying, currentSong]); // Re-run draw loop setup if isPlaying or song changes
 
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
@@ -87,77 +209,36 @@ export function DynamicBackground() {
       {backgroundImage && (
         <div
           key={currentSong?.id}
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 blur-2xl scale-110 transition-all duration-1000 ease-in-out"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-110 transition-all duration-1000 ease-in-out" // Removed opacity-30, blur-2xl
           style={{
             backgroundImage: `url(${backgroundImage})`,
-            filter: 'blur(40px) brightness(0.7)',
+            filter: 'blur(32px) brightness(0.6)', // Consolidated filter
+            opacity: 0.6, // Increased base opacity of the image
           }}
         />
       )}
       
-      {/* Dynamic Gradient Overlay */}
+      {/* Dynamic Gradient Overlay - Toned down */}
       <div
         key={`gradient-${currentSong?.id}`}
-        className="absolute inset-0 opacity-90 transition-all duration-1000 ease-in-out"
+        className="absolute inset-0 transition-all duration-1000 ease-in-out"
         style={{
-          background: `linear-gradient(135deg, ${dominantColors[0]} 0%, ${dominantColors[1]} 50%, ${dominantColors[2] || '#000000'} 100%)`
+          background: `linear-gradient(135deg, ${dominantColors[0]} 0%, ${dominantColors[1]} 50%, ${dominantColors[2] || '#000000'} 100%)`,
+          opacity: 0.3, // Reduced opacity
         }}
       />
       
-      {/* Additional dark overlay for text readability */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/40" />
+      {/* Additional dark overlay for text readability - Toned down */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-black/30" />
       
-      {/* Enhanced Audio Visualizer Elements */}
-      <div className="absolute inset-0 opacity-20">
-        {/* Pulsing circles that react to music */}
-        <div 
-          className="absolute top-1/4 left-1/4 rounded-full bg-white/30 animate-pulse" 
-          style={{ 
-            width: `${8 + visualizerIntensity * 8}px`,
-            height: `${8 + visualizerIntensity * 8}px`,
-            animationDuration: `${2 - visualizerIntensity}s`
-          }}
-        />
-        <div 
-          className="absolute top-3/4 right-1/3 rounded-full bg-white/20 animate-pulse" 
-          style={{ 
-            width: `${4 + visualizerIntensity * 6}px`,
-            height: `${4 + visualizerIntensity * 6}px`,
-            animationDelay: '1s', 
-            animationDuration: `${3 - visualizerIntensity}s`
-          }} 
-        />
-        <div 
-          className="absolute bottom-1/4 left-1/2 rounded-full bg-white/25 animate-pulse" 
-          style={{ 
-            width: `${6 + visualizerIntensity * 7}px`,
-            height: `${6 + visualizerIntensity * 7}px`,
-            animationDelay: '2s', 
-            animationDuration: `${4 - visualizerIntensity}s`
-          }} 
-        />
-        
-        {/* Moving light rays */}
-        {isPlaying && (
-          <>
-            <div 
-              className="absolute top-0 left-1/3 w-px bg-gradient-to-b from-white/20 to-transparent animate-pulse"
-              style={{ 
-                height: `${20 + visualizerIntensity * 40}%`,
-                animationDuration: '2s'
-              }}
-            />
-            <div 
-              className="absolute top-0 right-1/4 w-px bg-gradient-to-b from-white/15 to-transparent animate-pulse"
-              style={{ 
-                height: `${15 + visualizerIntensity * 35}%`,
-                animationDuration: '3s',
-                animationDelay: '1s'
-              }}
-            />
-          </>
-        )}
-      </div>
+      {/* Real Audio Visualizer Canvas */}
+      <canvas
+        ref={canvasRef}
+        width={window.innerWidth} // Set initial width
+        height={150} // Set initial height (can be adjusted)
+        className="absolute bottom-0 left-0 w-full opacity-50" // Positioned at the bottom
+        style={{ height: '150px' }} // Explicit height
+      />
 
       {/* Loading indicator */}
       {isLoading && (

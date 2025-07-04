@@ -29,7 +29,11 @@ class DownloadManager {
       return false;
     }
 
-    const fileName = `${song.artist ? `${song.artist} - ` : ''}${song.title || 'Unknown Song'}.mp3`;
+    const originalUrl = song.storage_path || song.file_url || '';
+    const extension = originalUrl.split('.').pop() || 'mp3'; // Default to mp3 if no extension
+    const mimeType = extension === 'opus' ? 'audio/opus' : 'audio/mpeg'; // Basic MIME type inference
+
+    const fileName = `${song.artist ? `${song.artist} - ` : ''}${song.title || 'Unknown Song'}.${extension}`;
     const abortController = new AbortController();
     this.abortControllers.set(song.id, abortController);
 
@@ -99,7 +103,7 @@ class DownloadManager {
       }
 
       // Create blob and trigger download
-      const blob = new Blob(chunks, { type: 'audio/mpeg' });
+      const blob = new Blob(chunks, { type: mimeType }); // Use inferred MIME type
       const url = URL.createObjectURL(blob);
       
       const link = document.createElement('a');

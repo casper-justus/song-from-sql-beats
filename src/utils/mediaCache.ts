@@ -7,6 +7,10 @@ const preloadQueue = new Map<string, Promise<string | null>>();
 const priorityQueue = new Set<string>();
 const prefetchQueue = new Set<string>();
 
+// Simple in-memory cache for the Supabase token to reduce session.getToken() calls during rapid requests
+let supabaseTokenCache: { token: string; expiresAt: number } | null = null;
+const SUPABASE_TOKEN_CACHE_DURATION_MS = 60 * 1000; // Cache token for 60 seconds
+
 // Enhanced device detection for mobile optimization
 const getDeviceType = () => {
   const userAgent = navigator.userAgent.toLowerCase();
@@ -96,10 +100,20 @@ export async function resolveMediaUrl(
   while (attempt < maxRetries) {
     try {
       const r2Key = isAudioFile ? constructMusicR2Key(fileKey) : fileKey;
-      
-      const token = await session.getToken({
-        template: 'supabase'
-      });
+      let token: string | null = null;
+
+      // Check our local token cache
+      if (supabaseTokenCache && Date.now() < supabaseTokenCache.expiresAt) {
+        token = supabaseTokenCache.token;
+        // console.log('Using cached Supabase token');
+      } else {
+        // console.log('Fetching new Supabase token');
+        const freshToken = await session.getToken({ template: 'supabase' });
+        if (freshToken) {
+          token = freshToken;
+          supabaseTokenCache = { token, expiresAt: Date.now() + SUPABASE_TOKEN_CACHE_DURATION_MS };
+        }
+      }
       
       if (!token) {
         throw new Error("Failed to get authentication token");
