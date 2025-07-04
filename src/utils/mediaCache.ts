@@ -1,41 +1,55 @@
-
-// Enhanced global cache for resolved media URLs with faster prefetching
+// Enhanced global cache for resolved media URLs with mobile optimization
 const globalMediaCache = new Map<string, { url: string; expires: number; deviceType?: string }>();
-const CACHE_DURATION = 90 * 60 * 1000; // Increased to 90 minutes
+const CACHE_DURATION = 120 * 60 * 1000; // Increased to 2 hours for better Cloudflare caching
 
-// Enhanced preload queue with priority levels
+// Enhanced preload queue with mobile-optimized priority levels
 const preloadQueue = new Map<string, Promise<string | null>>();
 const priorityQueue = new Set<string>();
 const prefetchQueue = new Set<string>();
 
-// Device detection for optimized caching
+// Enhanced device detection for mobile optimization
 const getDeviceType = () => {
   const userAgent = navigator.userAgent.toLowerCase();
-  if (/mobile|android|iphone|ipad|phone/i.test(userAgent)) {
-    return 'mobile';
-  }
-  if (/tablet|ipad/i.test(userAgent)) {
-    return 'tablet';
-  }
+  const isMobile = /mobile|android|iphone|phone/i.test(userAgent);
+  const isTablet = /tablet|ipad/i.test(userAgent);
+  
+  if (isMobile) return 'mobile';
+  if (isTablet) return 'tablet';
   return 'desktop';
 };
 
-// Enhanced network quality detection
-const getNetworkQuality = (): 'slow' | 'fast' => {
+// Enhanced network quality detection with mobile considerations
+const getNetworkQuality = (): 'slow' | 'medium' | 'fast' => {
   if ('connection' in navigator) {
     const connection = (navigator as any).connection;
-    if (connection.effectiveType === '4g' && connection.downlink > 3) {
-      return 'fast';
-    }
-    if (connection.effectiveType === '3g' && connection.downlink > 1.5) {
-      return 'fast';
-    }
+    const effectiveType = connection.effectiveType;
+    const downlink = connection.downlink || 0;
+    
+    if (effectiveType === '4g' && downlink > 5) return 'fast';
+    if (effectiveType === '4g' && downlink > 2) return 'medium';
+    if (effectiveType === '3g' && downlink > 1) return 'medium';
   }
   return 'slow';
 };
 
+// Mobile-optimized memory detection
+const getMemoryInfo = () => {
+  if ('memory' in performance && (performance as any).memory) {
+    const memory = (performance as any).memory;
+    const usedJSHeapSize = memory.usedJSHeapSize / 1024 / 1024; // MB
+    const totalJSHeapSize = memory.totalJSHeapSize / 1024 / 1024; // MB
+    
+    return {
+      used: usedJSHeapSize,
+      total: totalJSHeapSize,
+      isLowMemory: usedJSHeapSize > totalJSHeapSize * 0.8 || totalJSHeapSize < 100
+    };
+  }
+  return { used: 0, total: 0, isLowMemory: false };
+};
+
 /**
- * Constructs the proper R2 key for music files
+ * Constructs the proper R2 key for music files with Cloudflare cache optimization
  */
 export function constructMusicR2Key(storagePath: string): string {
   if (storagePath.startsWith('music/')) {
@@ -45,7 +59,7 @@ export function constructMusicR2Key(storagePath: string): string {
 }
 
 /**
- * Enhanced URL resolution with aggressive prefetching and caching
+ * Enhanced URL resolution with Cloudflare caching and mobile optimization
  */
 export async function resolveMediaUrl(
   fileKey: string, 
@@ -56,9 +70,11 @@ export async function resolveMediaUrl(
   if (!fileKey) return null;
   
   const deviceType = getDeviceType();
+  const networkQuality = getNetworkQuality();
+  const memoryInfo = getMemoryInfo();
   const cacheKey = `${fileKey}-${deviceType}`;
   
-  // Check cache first
+  // Check cache first with extended duration for mobile
   const cached = globalMediaCache.get(cacheKey);
   if (cached && Date.now() < cached.expires) {
     return cached.url;
@@ -69,7 +85,12 @@ export async function resolveMediaUrl(
     return null;
   }
 
-  const maxRetries = priority === 'high' ? 4 : 2;
+  // Adaptive retry strategy based on device capabilities
+  const maxRetries = memoryInfo.isLowMemory ? 2 : (priority === 'high' ? 4 : 3);
+  const timeout = deviceType === 'mobile' ? 
+    (networkQuality === 'slow' ? 12000 : 8000) : 
+    (priority === 'high' ? 10000 : 6000);
+
   let attempt = 0;
 
   while (attempt < maxRetries) {
@@ -85,12 +106,16 @@ export async function resolveMediaUrl(
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), priority === 'high' ? 8000 : 5000);
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+      // Enhanced headers for Cloudflare caching
       const response = await fetch(`https://aws.njahjustus.workers.dev/sign-r2?key=${encodeURIComponent(r2Key)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=7200', // 2 hours cache
+          'CF-Cache-Tag': `media-${deviceType}`, // Cloudflare cache tagging
+          'Accept-Encoding': 'gzip, deflate, br' // Enable compression
         },
         signal: controller.signal
       });
@@ -103,8 +128,11 @@ export async function resolveMediaUrl(
       
       const data = await response.json();
       if (data && data.signedUrl) {
-        // Use longer cache duration for high priority items
-        const cacheDuration = priority === 'high' ? CACHE_DURATION * 2 : CACHE_DURATION;
+        // Extended cache duration for mobile to reduce requests
+        const cacheDuration = deviceType === 'mobile' ? 
+          CACHE_DURATION * 1.5 : 
+          (priority === 'high' ? CACHE_DURATION * 2 : CACHE_DURATION);
+          
         globalMediaCache.set(cacheKey, {
           url: data.signedUrl,
           expires: Date.now() + cacheDuration,
@@ -119,8 +147,10 @@ export async function resolveMediaUrl(
         console.error(`resolveMediaUrl error after ${maxRetries} attempts:`, error);
         return null;
       }
-      // Exponential backoff with jitter
-      const backoffTime = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+      // Adaptive backoff with mobile considerations
+      const backoffTime = deviceType === 'mobile' ? 
+        Math.min(Math.pow(2, attempt) * 500, 3000) + Math.random() * 500 :
+        Math.pow(2, attempt) * 1000 + Math.random() * 1000;
       await new Promise(resolve => setTimeout(resolve, backoffTime));
     }
   }
@@ -128,7 +158,7 @@ export async function resolveMediaUrl(
 }
 
 /**
- * Aggressive background prefetching for better performance
+ * Mobile-optimized background prefetching with memory awareness
  */
 export async function startBackgroundPrefetch(
   songs: any[], 
@@ -137,25 +167,32 @@ export async function startBackgroundPrefetch(
 ) {
   const networkQuality = getNetworkQuality();
   const deviceType = getDeviceType();
+  const memoryInfo = getMemoryInfo();
   
-  // Determine how many songs to prefetch based on device and network
+  // Adaptive prefetch limits based on device capabilities
   let maxPrefetch = songs.length;
+  
   if (deviceType === 'mobile') {
-    maxPrefetch = networkQuality === 'fast' ? 12 : 6;
+    if (memoryInfo.isLowMemory) {
+      maxPrefetch = networkQuality === 'fast' ? 4 : 2;
+    } else {
+      maxPrefetch = networkQuality === 'fast' ? 8 : 4;
+    }
+  } else if (deviceType === 'tablet') {
+    maxPrefetch = networkQuality === 'fast' ? 15 : 8;
   } else {
-    maxPrefetch = networkQuality === 'fast' ? 25 : 15;
+    maxPrefetch = networkQuality === 'fast' ? 30 : 20;
   }
 
-  // Prioritize songs around current position
   const prefetchList = [];
   
-  // Add current and next 3 songs as high priority
-  for (let i = 0; i < Math.min(4, songs.length); i++) {
+  // Prioritize immediate next songs for seamless playback
+  for (let i = 0; i < Math.min(3, songs.length); i++) {
     const index = (currentIndex + i) % songs.length;
     prefetchList.push({ song: songs[index], priority: 'high' as const, index });
   }
   
-  // Add previous 2 songs as high priority
+  // Add previous songs for quick back navigation
   for (let i = 1; i <= 2 && prefetchList.length < maxPrefetch; i++) {
     const index = (currentIndex - i + songs.length) % songs.length;
     if (!prefetchList.find(item => item.index === index)) {
@@ -165,7 +202,7 @@ export async function startBackgroundPrefetch(
   
   // Fill remaining slots with normal priority
   let remainingSlots = maxPrefetch - prefetchList.length;
-  for (let i = 4; i < songs.length && remainingSlots > 0; i++) {
+  for (let i = 3; i < songs.length && remainingSlots > 0; i++) {
     const index = (currentIndex + i) % songs.length;
     if (!prefetchList.find(item => item.index === index)) {
       prefetchList.push({ song: songs[index], priority: 'normal' as const, index });
@@ -173,8 +210,11 @@ export async function startBackgroundPrefetch(
     }
   }
 
-  // Start prefetching in batches to avoid overwhelming the network
-  const batchSize = networkQuality === 'fast' ? 5 : 3;
+  // Mobile-optimized batch processing
+  const batchSize = deviceType === 'mobile' ? 
+    (memoryInfo.isLowMemory ? 1 : 2) : 
+    (networkQuality === 'fast' ? 4 : 2);
+
   for (let i = 0; i < prefetchList.length; i += batchSize) {
     const batch = prefetchList.slice(i, i + batchSize);
     
@@ -192,8 +232,8 @@ export async function startBackgroundPrefetch(
         }
       }
       
-      // Also prefetch cover images
-      if (coverKey && !prefetchQueue.has(`cover-${song.id}`)) {
+      // Only prefetch covers if not low memory
+      if (coverKey && !memoryInfo.isLowMemory && !prefetchQueue.has(`cover-${song.id}`)) {
         prefetchQueue.add(`cover-${song.id}`);
         resolveUrl(coverKey, false, 'normal').catch(() => {
           // Ignore cover prefetch errors
@@ -203,9 +243,11 @@ export async function startBackgroundPrefetch(
 
     await Promise.allSettled(batchPromises);
     
-    // Small delay between batches to prevent overwhelming
+    // Adaptive delay between batches
     if (i + batchSize < prefetchList.length) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const delay = deviceType === 'mobile' ? 
+        (memoryInfo.isLowMemory ? 300 : 150) : 100;
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 }
@@ -269,16 +311,25 @@ export async function fetchLyricsContent(
 }
 
 /**
- * Optimized cache management with better memory efficiency
+ * Mobile-optimized cache management with memory monitoring
  */
 export function optimizeCache() {
   const deviceType = getDeviceType();
-  const maxCacheSize = deviceType === 'mobile' ? 100 : 400;
+  const memoryInfo = getMemoryInfo();
+  
+  // Adaptive cache limits based on device capabilities
+  let maxCacheSize = 500; // Default for desktop
+  
+  if (deviceType === 'mobile') {
+    maxCacheSize = memoryInfo.isLowMemory ? 30 : 80;  
+  } else if (deviceType === 'tablet') {
+    maxCacheSize = memoryInfo.isLowMemory ? 100 : 200;
+  }
   
   if (globalMediaCache.size > maxCacheSize) {
     const entries = Array.from(globalMediaCache.entries());
     
-    // Sort by priority and expiration
+    // Enhanced sorting with device-specific priorities
     entries.sort((a, b) => {
       const aIsPriority = priorityQueue.has(a[0].split('-')[0]);
       const bIsPriority = priorityQueue.has(b[0].split('-')[0]);
@@ -289,8 +340,9 @@ export function optimizeCache() {
       return a[1].expires - b[1].expires;
     });
     
-    // Remove oldest 25% of non-priority entries
-    const toRemove = Math.floor(entries.length * 0.25);
+    // More aggressive cleanup for mobile devices
+    const removalRatio = deviceType === 'mobile' ? 0.4 : 0.25;
+    const toRemove = Math.floor(entries.length * removalRatio);
     let removed = 0;
     
     for (const [key] of entries) {
@@ -312,7 +364,8 @@ export function optimizeCache() {
   }
 }
 
-// More frequent cache optimization for better performance
-setInterval(optimizeCache, 2 * 60 * 1000); // Every 2 minutes
+// More frequent cache optimization for mobile devices
+const cacheOptimizationInterval = getDeviceType() === 'mobile' ? 60000 : 120000; // 1-2 minutes
+setInterval(optimizeCache, cacheOptimizationInterval);
 
 export { globalMediaCache, preloadQueue, priorityQueue };

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser, useSession } from '@clerk/clerk-react';
@@ -73,7 +72,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [isInitialized, setIsInitialized] = useState(false);
   const queryClient = useQueryClient();
 
-  // Enhanced URL resolution with priority support
+  // Enhanced URL resolution with mobile optimization
   const resolveMediaUrlWithSession = useCallback(async (
     fileKey: string, 
     isAudioFile: boolean = false, 
@@ -107,7 +106,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     playNext
   );
 
-  // Fetch songs with better error handling
+  // Fetch songs with mobile-optimized caching
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
     queryKey: ['songs'],
     queryFn: async () => {
@@ -123,9 +122,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       return data || [];
     },
     enabled: !!user && !!supabase,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+    staleTime: 15 * 60 * 1000, // Increased for mobile
+    retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 20000),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: 'always' // Important for mobile network switches
   });
 
   // Fetch playlists
@@ -208,14 +209,16 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
-  // Enhanced queue management
+  // Mobile-optimized queue management with aggressive prefetching
   const setQueue = useCallback((newQueue: Song[], startIndex: number = 0) => {
     setQueueState(newQueue);
     setCurrentQueueIndex(startIndex);
     if (newQueue.length > 0) {
       setCurrentSong(newQueue[startIndex]);
-      // Start prefetching around the current position
-      startBackgroundPrefetch(newQueue, resolveMediaUrlWithSession, startIndex);
+      // Start immediate prefetching for mobile
+      setTimeout(() => {
+        startBackgroundPrefetch(newQueue, resolveMediaUrlWithSession, startIndex);
+      }, 100);
     }
   }, [resolveMediaUrlWithSession]);
 
@@ -335,7 +338,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [currentSong, session]);
 
-  // Enhanced song selection
+  // Enhanced song selection with mobile-first approach
   const selectSong = useCallback(async (song: Song) => {
     console.log('Selecting song:', song.title);
     
@@ -359,7 +362,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
     }
 
-    // Enhanced auto-play
+    // Mobile-optimized auto-play with reduced delay
     setTimeout(async () => {
       if (audioRef.current) {
         const audioFileKey = song.storage_path || song.file_url;
@@ -377,6 +380,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
           if (resolvedSrc && audioRef.current) {
             audioRef.current.src = resolvedSrc;
+            audioRef.current.preload = 'auto'; // Ensure full preload for smooth playback
             await audioRef.current.play();
             setIsPlaying(true);
           }
@@ -385,7 +389,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
           setIsPlaying(false);
         }
       }
-    }, 100);
+    }, 50); // Reduced delay for better mobile responsiveness
   }, [queue, songs, resolveMediaUrlWithSession, setQueue, audioRef]);
 
   const togglePlay = useCallback(async () => {

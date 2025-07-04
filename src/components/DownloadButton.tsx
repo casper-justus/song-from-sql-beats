@@ -14,9 +14,11 @@ interface DownloadButtonProps {
   className?: string;
 }
 
+type DownloadStatus = 'idle' | 'downloading' | 'completed' | 'error';
+
 export function DownloadButton({ song, className }: DownloadButtonProps) {
   const { session } = useSession();
-  const [downloadStatus, setDownloadStatus] = useState<'idle' | 'downloading' | 'completed' | 'error'>('idle');
+  const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle');
   const [progress, setProgress] = useState(0);
 
   const handleDownload = async () => {

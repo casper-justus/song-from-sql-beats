@@ -8,6 +8,7 @@ import { useUser } from "@clerk/clerk-react";
 
 import { MusicPlayerProvider } from "./contexts/MusicPlayerContext";
 import { ClerkSupabaseProvider } from "./contexts/ClerkSupabaseContext";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -25,8 +26,10 @@ import { DynamicBackground } from "./components/DynamicBackground";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 10 * 60 * 1000, // Increased to 10 minutes for better mobile caching
       retry: 2,
+      refetchOnWindowFocus: false, // Reduce unnecessary network requests
+      refetchOnReconnect: false,
     },
   },
 });
@@ -42,31 +45,36 @@ const ConditionalBottomNavigation = () => {
   );
 };
 
-const AppContent = () => (
-  <div className="min-h-screen relative">
-    <DynamicBackground />
-    <div className="relative z-10">
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
+const AppContent = () => {
+  // Enable keyboard shortcuts
+  useKeyboardShortcuts();
+  
+  return (
+    <div className="min-h-screen relative">
+      <DynamicBackground />
+      <div className="relative z-10">
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
 
-        <Route element={<ClerkProtectedRoute />}>
-          <Route path="/library" element={<LibraryPage />} />
-          <Route path="/liked" element={<LikedSongsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-        </Route>
+          <Route element={<ClerkProtectedRoute />}>
+            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/liked" element={<LikedSongsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
 
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/terms" element={<div className="p-8 text-white">Terms and Conditions Page (Placeholder)</div>} />
-        <Route path="/privacy" element={<div className="p-8 text-white">Privacy Policy Page (Placeholder)</div>} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/terms" element={<div className="p-8 text-white">Terms and Conditions Page (Placeholder)</div>} />
+          <Route path="/privacy" element={<div className="p-8 text-white">Privacy Policy Page (Placeholder)</div>} />
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      <ConditionalBottomNavigation />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <ConditionalBottomNavigation />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
