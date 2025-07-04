@@ -121,8 +121,8 @@ export async function resolveMediaUrl(
           'Referer': window.location.href,
           'Sec-Fetch-Dest': isAudioFile ? 'audio' : 'image',
           'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'cross-site',
-          'X-Requested-With': 'XMLHttpRequest'
+          'Sec-Fetch-Site': 'cross-site'
+          // 'X-Requested-With': 'XMLHttpRequest' // Removed to match worker CORS policy
         },
         mode: 'cors',
         credentials: 'omit',
