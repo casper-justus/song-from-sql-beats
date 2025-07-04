@@ -55,7 +55,7 @@ export function BottomNavbar() {
 
   return (
     <div
-      className="fixed bottom-16 left-0 right-0 z-50 mx-auto w-[95%] sm:w-11/12 max-w-4xl h-16 sm:h-20 rounded-full shadow-2xl flex items-center justify-between px-3 sm:px-6 space-x-2 sm:space-x-3 backdrop-blur-lg border border-white/20 relative overflow-hidden transition-all duration-500"
+      className="fixed bottom-20 left-1/2 -translate-x-1/2 w-11/12 max-w-md h-16 sm:h-20 rounded-full shadow-2xl flex items-center justify-between px-3 sm:px-6 space-x-2 sm:space-x-3 backdrop-blur-lg border border-white/20 relative overflow-hidden transition-all duration-500 z-50"
       style={{ 
         backgroundColor: dominantColor,
         boxShadow: `0 8px 32px ${dominantColor}40, 0 0 0 1px ${dominantColor}20`

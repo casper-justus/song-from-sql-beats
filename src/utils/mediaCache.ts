@@ -1,4 +1,3 @@
-
 // Enhanced global cache for resolved media URLs with mobile optimization
 const globalMediaCache = new Map<string, { url: string; expires: number; deviceType?: string }>();
 const CACHE_DURATION = 180 * 60 * 1000; // Increased to 3 hours for better caching
@@ -60,7 +59,7 @@ export function constructMusicR2Key(storagePath: string): string {
 }
 
 /**
- * Enhanced URL resolution with flawless CORS handling and Cloudflare optimization
+ * Enhanced URL resolution with flawless CORS handling - FIXED headers
  */
 export async function resolveMediaUrl(
   fileKey: string, 
@@ -109,18 +108,14 @@ export async function resolveMediaUrl(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      // Perfect CORS headers for flawless music fetching
+      // FIXED CORS headers - removed unsupported caching headers
       const response = await fetch(`https://aws.njahjustus.workers.dev/sign-r2?key=${encodeURIComponent(r2Key)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json, */*',
-          'Accept-Encoding': 'gzip, deflate, br',
           'Accept-Language': 'en-US,en;q=0.9',
-          'Cache-Control': 'public, max-age=21600', // 6 hours for Cloudflare
-          'CF-Cache-Tag': `media-${deviceType}-${priority}`,
-          'CF-Ray': Date.now().toString(),
           'User-Agent': navigator.userAgent,
           'Origin': window.location.origin,
           'Referer': window.location.href,
@@ -131,7 +126,6 @@ export async function resolveMediaUrl(
         },
         mode: 'cors',
         credentials: 'omit',
-        cache: 'force-cache',
         signal: controller.signal
       });
 
@@ -151,7 +145,7 @@ export async function resolveMediaUrl(
       
       const data = await response.json();
       if (data && data.signedUrl) {
-        // Extended cache duration with Cloudflare optimization
+        // Extended cache duration with optimization
         const cacheDuration = deviceType === 'mobile' ? 
           CACHE_DURATION * 1.5 : 
           (priority === 'high' ? CACHE_DURATION * 2 : CACHE_DURATION);
