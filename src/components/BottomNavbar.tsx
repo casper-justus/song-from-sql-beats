@@ -55,8 +55,11 @@ export function BottomNavbar() {
 
   return (
     <div
-      className="fixed bottom-20 left-1/2 -translate-x-1/2 w-[95%] sm:w-11/12 max-w-4xl h-16 sm:h-20 rounded-full shadow-2xl flex items-center justify-between px-3 sm:px-6 space-x-2 sm:space-x-3 z-40 backdrop-blur-lg border border-white/20 relative overflow-hidden transition-all duration-500"
-      style={{ backgroundColor: dominantColor }}
+      className="fixed bottom-16 left-0 right-0 mx-auto w-[95%] sm:w-11/12 max-w-4xl h-16 sm:h-20 rounded-full shadow-2xl flex items-center justify-between px-3 sm:px-6 space-x-2 sm:space-x-3 z-50 backdrop-blur-lg border border-white/20 relative overflow-hidden transition-all duration-500"
+      style={{ 
+        backgroundColor: dominantColor,
+        boxShadow: `0 8px 32px ${dominantColor}40, 0 0 0 1px ${dominantColor}20`
+      }}
     >
       {/* Album Art & Info */}
       <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink min-w-0">

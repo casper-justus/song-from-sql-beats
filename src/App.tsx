@@ -26,10 +26,11 @@ import { DynamicBackground } from "./components/DynamicBackground";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 10 * 60 * 1000, // Increased to 10 minutes for better mobile caching
-      retry: 2,
-      refetchOnWindowFocus: false, // Reduce unnecessary network requests
-      refetchOnReconnect: false,
+      staleTime: 15 * 60 * 1000, // Increased for better performance
+      retry: 3,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: 'always',
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
   },
 });
@@ -52,7 +53,7 @@ const AppContent = () => {
   return (
     <div className="min-h-screen relative">
       <DynamicBackground />
-      <div className="relative z-10">
+      <div className="relative z-10 pb-32"> {/* Added bottom padding for sticky nav */}
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />
@@ -70,8 +71,8 @@ const AppContent = () => {
 
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <ConditionalBottomNavigation />
       </div>
+      <ConditionalBottomNavigation />
     </div>
   );
 };
