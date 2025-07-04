@@ -22,28 +22,32 @@ export function DynamicBackground() {
       setIsLoading(true);
       
       try {
+        console.log('[DynamicBackground] currentSong:', currentSong);
         if (currentSong.cover_url) {
-          console.log('Loading background image for:', currentSong.title);
+          console.log('[DynamicBackground] Loading background image for:', currentSong.title, 'Cover URL:', currentSong.cover_url);
           const resolvedImageUrl = await resolveMediaUrl(currentSong.cover_url, session, false, 'high');
+          console.log('[DynamicBackground] Resolved image URL:', resolvedImageUrl);
           if (resolvedImageUrl) {
             setBackgroundImage(resolvedImageUrl);
             const colors = generateColorsFromText(currentSong.title + (currentSong.artist || ''));
             setDominantColors(colors);
-            console.log('Background image loaded successfully');
+            console.log('[DynamicBackground] Background image loaded successfully. Dominant colors:', colors);
           } else {
-            console.log('No resolved image URL, using color scheme');
+            console.log('[DynamicBackground] No resolved image URL, using color scheme');
             setBackgroundImage(null);
             const colors = generateColorsFromText(currentSong.title + (currentSong.artist || ''));
             setDominantColors(colors);
+            console.log('[DynamicBackground] Fallback dominant colors:', colors);
           }
         } else {
-          console.log('No cover URL, generating colors from text');
+          console.log('[DynamicBackground] No cover URL, generating colors from text');
           setBackgroundImage(null);
           const colors = generateColorsFromText(currentSong.title + (currentSong.artist || ''));
           setDominantColors(colors);
+          console.log('[DynamicBackground] Fallback dominant colors (no cover_url):', colors);
         }
       } catch (error) {
-        console.error('Error updating background:', error);
+        console.error('[DynamicBackground] Error updating background:', error);
         setBackgroundImage(null);
         setDominantColors(['#1a1a1a', '#2a2a2a']);
       } finally {
