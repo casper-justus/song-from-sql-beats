@@ -3,13 +3,15 @@ const globalMediaCache = new Map<string, { url: string; expires: number; deviceT
 const CACHE_DURATION = 180 * 60 * 1000; // Increased to 3 hours for better caching
 
 // Enhanced preload queue with mobile-optimized priority levels
-const preloadQueue = new Map<string, Promise<string | null>>();
-const priorityQueue = new Set<string>();
-const prefetchQueue = new Set<string>();
+const preloadQueue = new Map<string, Promise<string | null>>(); // Stores promises for resolved URLs
+const audioBlobCache = new Map<string, Blob>(); // Stores fully preloaded audio Blobs
+const priorityQueue = new Set<string>(); // Tracks song IDs that are high priority for preloading
+const prefetchQueue = new Set<string>(); // Tracks song IDs currently being prefetched (URL or Blob)
 
 // Simple in-memory cache for the Supabase token to reduce session.getToken() calls during rapid requests
 let supabaseTokenCache: { token: string; expiresAt: number } | null = null;
 const SUPABASE_TOKEN_CACHE_DURATION_MS = 60 * 1000; // Cache token for 60 seconds
+import LrcApi from '@spicysparks/lrc-api'; // Import the new library
 
 // Enhanced device detection for mobile optimization
 const getDeviceType = () => {
@@ -273,20 +275,35 @@ export async function startBackgroundPrefetch(
       if (audioFileKey && !prefetchQueue.has(song.id)) {
         prefetchQueue.add(song.id);
         const audioPromise = resolveUrl(audioFileKey, true, priority);
-        preloadQueue.set(song.id, audioPromise);
-        
+        preloadQueue.set(song.id, audioPromise); // Store the promise for the URL
+
         if (priority === 'high') {
           priorityQueue.add(song.id);
         }
         
-        // Wait for the promise to complete or fail
         try {
-          const result = await audioPromise;
-          if (result) {
-            console.log(`✅ Prefetched audio: ${song.title}`);
+          const resolvedAudioUrl = await audioPromise;
+          if (resolvedAudioUrl) {
+            console.log(`✅ Resolved URL for audio: ${song.title}`);
+            // If it's a high priority song and not already blob-cached, try to fetch its blob
+            // For simplicity, let's try to fully preload the very next song (index 0 of high priority batch)
+            // More sophisticated logic would manage a small number of blob caches.
+            if (priority === 'high' && batch.findIndex(p => p.song.id === song.id) < 2 && !audioBlobCache.has(song.id)) { // Prefetch blob for next 2 high prio
+              console.log(`🚀 Attempting to fully preload high-priority audio: ${song.title}`);
+              try {
+                const response = await fetch(resolvedAudioUrl);
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                const blob = await response.blob();
+                audioBlobCache.set(song.id, blob);
+                manageAudioBlobCache(song.id); // Manage cache size
+                console.log(`✅ Fully preloaded audio blob for: ${song.title}. Blob cache size: ${audioBlobCache.size}`);
+              } catch (blobError) {
+                console.warn(`❌ Failed to fully preload audio blob for ${song.title}:`, blobError);
+              }
+            }
           }
         } catch (error) {
-          console.warn(`❌ Failed to prefetch audio for ${song.title}:`, error);
+          console.warn(`❌ Failed to resolve/preload audio for ${song.title}:`, error);
         }
       }
       
@@ -317,17 +334,70 @@ export async function startBackgroundPrefetch(
 }
 
 /**
- * Enhanced lyrics fetching with better caching
+ * Enhanced lyrics fetching with better caching, trying lrc-api first.
  */
+const lrcApi = new LrcApi(); // Instantiate the API client
+
 export async function fetchLyricsContent(
-  lyricsUrl: string,
-  session: any
+  title: string,
+  artist: string,
+  lyricsUrl?: string | null, // Make lyricsUrl optional
+  session?: any // Session might still be needed if fetching from lyricsUrl
 ): Promise<string> {
-  if (!lyricsUrl) {
-    return 'No lyrics available for this song.';
+  if (!title || !artist) {
+    console.warn('[Lyrics] Title or artist missing, cannot fetch from API.');
+    // Fallback to lyricsUrl if provided
+    if (lyricsUrl && session) {
+        return fetchDirectLrcFile(lyricsUrl, session);
+    }
+    return 'Lyrics not available (missing title/artist).';
   }
 
-  const cacheKey = `lyrics-${lyricsUrl}`;
+  try {
+    console.log(`[Lyrics] Attempting to fetch LRC for: ${artist} - ${title} via @spicysparks/lrc-api`);
+    const result = await lrcApi.getLyrics({ artist, title, // album and duration are optional
+    });
+
+    if (result && result.lyrics && result.lyrics.length > 0) {
+      // Assuming result.lyrics is an array of LRC line objects, we need to format it back to string
+      // Or check if there's a direct LRC string property.
+      // For now, let's assume result.syncedLyrics is the LRC string if available, or build from lines.
+      // The library's own docs are sparse, so this is an educated guess.
+      // Let's check the structure of 'result'.
+      console.log('[Lyrics] API Result:', result);
+      if (typeof result.syncedLyrics === 'string' && result.syncedLyrics.trim() !== '') {
+        console.log('[Lyrics] Found syncedLyrics string from API');
+        return result.syncedLyrics;
+      }
+      if (Array.isArray(result.lyrics) && result.lyrics.length > 0 && result.lyrics[0].text !== undefined && result.lyrics[0].time !== undefined) {
+         // Reconstruct LRC string if it provides lines
+         console.log('[Lyrics] Reconstructing LRC from API lines');
+         return result.lyrics.map((line: { time: { minutes: number, seconds: number, milliseconds: number }, text: string }) =>
+           `[${String(line.time.minutes).padStart(2, '0')}:${String(line.time.seconds).padStart(2, '0')}.${String(line.time.milliseconds).padStart(3, '0').slice(0,2)}]${line.text}`
+         ).join('\n');
+      }
+      if (typeof result.lyrics === 'string' && result.lyrics.trim() !== '') { // some libs might just return a string
+        console.log('[Lyrics] Found lyrics string from API');
+        return result.lyrics;
+      }
+    }
+    console.log('[Lyrics] No lyrics found via API or result format unexpected.');
+  } catch (apiError) {
+    console.error('[Lyrics] Error fetching from @spicysparks/lrc-api:', apiError);
+  }
+
+  // Fallback to direct lyricsUrl if API fails or returns nothing
+  if (lyricsUrl && session) {
+    console.log(`[Lyrics] Falling back to lyrics_url: ${lyricsUrl}`);
+    return fetchDirectLrcFile(lyricsUrl, session);
+  }
+
+  return 'Synced lyrics not found.';
+}
+
+// Helper for the original direct LRC file fetching logic
+async function fetchDirectLrcFile(lyricsUrl: string, session: any): Promise<string> {
+  const cacheKey = `lyrics-direct-${lyricsUrl}`;
   const cached = globalMediaCache.get(cacheKey);
   
   if (cached && Date.now() < cached.expires) {
@@ -436,4 +506,44 @@ export function optimizeCache() {
 const cacheOptimizationInterval = getDeviceType() === 'mobile' ? 45000 : 90000; // 45s-90s
 setInterval(optimizeCache, cacheOptimizationInterval);
 
-export { globalMediaCache, preloadQueue, priorityQueue };
+const MAX_AUDIO_BLOB_CACHE_SIZE = 3; // Keep, for example, current/next + one previous or two next
+
+function manageAudioBlobCache(newlyAddedSongId?: string) {
+  // If a newly added song ID is provided, ensure it's not evicted immediately if possible
+  // This is a simple FIFO if newlyAddedSongId is not part of the oldest.
+  // For true LRU, we'd need to track access times.
+
+  while (audioBlobCache.size > MAX_AUDIO_BLOB_CACHE_SIZE) {
+    // Get the first (oldest) key from the Map iterator
+    const oldestKey = audioBlobCache.keys().next().value;
+    if (oldestKey && oldestKey !== newlyAddedSongId) { // Avoid evicting the item just added if cache was already full
+      const blobToRemove = audioBlobCache.get(oldestKey);
+      if (blobToRemove) {
+        // No explicit URL.revokeObjectURL here as the URL is created and revoked in the context
+        // This cache just stores the blobs.
+        console.log(`[Cache] Evicting audio blob for song ID: ${oldestKey} due to cache size limit.`);
+        audioBlobCache.delete(oldestKey);
+      }
+    } else if (oldestKey && oldestKey === newlyAddedSongId && audioBlobCache.size > MAX_AUDIO_BLOB_CACHE_SIZE) {
+      // If the oldest is the one just added, means we need to remove another one.
+      // This simple FIFO might remove the "second oldest" in this specific edge case.
+      // A more robust LRU would handle this better. For now, let's find another candidate.
+      let evicted = false;
+      for (const key of audioBlobCache.keys()) {
+        if (key !== newlyAddedSongId) {
+          audioBlobCache.delete(key);
+          console.log(`[Cache] Evicting audio blob for song ID: ${key} (alternative) due to cache size limit.`);
+          evicted = true;
+          break;
+        }
+      }
+      if (!evicted) { // Should not happen if size > 1
+         audioBlobCache.delete(oldestKey); // Fallback if only the new item is there and > MAX (though MAX should be > 0)
+      }
+    } else {
+      break; // Should not happen if logic is correct and size > MAX
+    }
+  }
+}
+
+export { globalMediaCache, preloadQueue, priorityQueue, audioBlobCache, manageAudioBlobCache };

@@ -21,6 +21,14 @@ export default function LibraryPage() {
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [newPlaylistDescription, setNewPlaylistDescription] = useState('');
+  const [downloadedTracks, setDownloadedTracks] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    // Load downloaded tracks from localStorage when component mounts or tab is active
+    // This could be tied to when the "downloads" tab becomes active for efficiency
+    const storedDownloads = JSON.parse(localStorage.getItem('downloadedSongsList') || '[]');
+    setDownloadedTracks(storedDownloads);
+  }, []);
 
   const handleCreatePlaylist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +67,7 @@ export default function LibraryPage() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white min-h-screen">
-      <header className="mb-8">
+      <header className="mb-6"> {/* Reduced mb-8 to mb-6 */}
         <h1 className="text-4xl font-bold">My Library</h1>
         <p className="text-lg text-gray-400 mt-2">
           Your personal collection of music.
@@ -67,7 +75,7 @@ export default function LibraryPage() {
       </header>
 
       <Tabs defaultValue="playlists" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-gray-800 mb-8">
+        <TabsList className="grid w-full grid-cols-2 bg-gray-800 mb-6"> {/* Reduced mb-8 to mb-6 */}
           <TabsTrigger value="playlists" className="text-white data-[state=active]:bg-green-600">
             Playlists
           </TabsTrigger>
@@ -77,7 +85,7 @@ export default function LibraryPage() {
         </TabsList>
 
         <TabsContent value="playlists">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4"> {/* Reduced mb-6 to mb-4 */}
             <h2 className="text-2xl font-semibold">Your Playlists</h2>
             <Dialog open={showCreatePlaylist} onOpenChange={setShowCreatePlaylist}>
               <DialogTrigger asChild>
@@ -183,18 +191,68 @@ export default function LibraryPage() {
 
         <TabsContent value="downloads">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold">Downloaded Music</h2>
+            <h2 className="text-2xl font-semibold">Download History</h2>
+            {downloadedTracks.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (confirm('Are you sure you want to clear your download history? This does not delete files from your computer.')) {
+                    localStorage.removeItem('downloadedSongsList');
+                    setDownloadedTracks([]);
+                  }
+                }}
+                className="text-red-500 border-red-500 hover:bg-red-500/10 hover:text-red-400"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Clear History
+              </Button>
+            )}
           </div>
           
-          <div className="p-6 bg-gray-800 rounded-lg shadow-md">
-            <div className="flex items-center justify-center flex-col space-y-4">
-              <Folder className="w-16 h-16 text-gray-400" />
-              <p className="text-gray-300 text-center">No downloaded songs yet.</p>
-              <p className="text-sm text-gray-500 text-center">
-                Download songs for offline listening by clicking the download button on any track.
+          {downloadedTracks.length > 0 ? (
+            <div className="space-y-3">
+              {downloadedTracks.map((track, index) => (
+                <div
+                  key={track.songId || index}
+                  className="p-3 rounded-lg bg-gray-800/60 border border-gray-700/50 flex items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Folder className="w-6 h-6 text-yellow-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-white truncate">{track.title}</p>
+                      <p className="text-gray-400 text-xs truncate">{track.artist}</p>
+                      <p className="text-gray-500 text-xs truncate">{track.fileName}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      const updatedTracks = downloadedTracks.filter(t => t.songId !== track.songId);
+                      localStorage.setItem('downloadedSongsList', JSON.stringify(updatedTracks));
+                      setDownloadedTracks(updatedTracks);
+                    }}
+                    className="text-gray-400 hover:text-red-500 w-8 h-8"
+                    title="Remove from history"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+               <p className="text-xs text-gray-500 text-center pt-4">
+                This list tracks songs you've started downloading via this browser. It does not manage the actual files on your device or guarantee offline availability within this app.
               </p>
             </div>
-          </div>
+          ) : (
+            <div className="p-8 bg-gray-800/40 rounded-lg shadow-md text-center">
+              <Folder className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+              <p className="text-gray-300">Your download history is empty.</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Songs you download will appear here.
+              </p>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
