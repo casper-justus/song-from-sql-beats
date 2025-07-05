@@ -4,8 +4,9 @@ import { useUser } from '@clerk/clerk-react';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
-import { Play, Pause, Heart, Download } from 'lucide-react';
+import { Play, Pause, Heart, Download, MoreVertical, SkipForward, ListPlus } from 'lucide-react'; // Added icons
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // Added Dropdown
 import { cn } from '@/lib/utils';
 import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 
@@ -15,12 +16,15 @@ export default function LikedSongsPage() {
   const { user } = useUser();
   const { supabase, isReady } = useClerkSupabase();
   const { 
-    selectSong, 
+    // selectSong, // Will be replaced by specific setQueue call
+    setQueue, // Added
     currentSong, 
     isPlaying, 
     togglePlay, 
     likedSongIds, 
-    toggleLikeSong
+    toggleLikeSong,
+    playNextInQueue, // Added
+    addToQueue // Added
   } = useMusicPlayer();
   
   const [likedSongsDetails, setLikedSongsDetails] = useState<Song[]>([]);
@@ -80,11 +84,10 @@ export default function LikedSongsPage() {
     fetchLikedSongsDetails();
   }, [user, isReady, supabase, likedSongIds]);
 
-  const handlePlaySong = (song: Song) => {
-    if (currentSong?.id === song.id && isPlaying) {
-      togglePlay();
-    } else {
-      selectSong(song);
+  const handlePlaySong = (songToPlay: Song, index: number) => {
+    // Play all liked songs, starting from the selected one
+    if (likedSongsDetails.length > 0) {
+      setQueue(likedSongsDetails, index);
     }
   };
 
@@ -164,11 +167,43 @@ export default function LikedSongsPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => handlePlaySong(song)}
+                  onClick={() => handlePlaySong(song, index)} // Pass index here
                   className="text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity w-8 h-8"
+                  title={currentSong?.id === song.id && isPlaying ? "Pause" : "Play"}
                 >
                   {currentSong?.id === song.id && isPlaying ? <Pause size={20} /> : <Play size={20} />}
                 </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-gray-400 hover:text-white w-8 h-8 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      title="More options"
+                      onClick={(e) => e.stopPropagation()} // Prevent row click if row itself becomes clickable
+                    >
+                      <MoreVertical size={20} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-gray-800 border-gray-700 text-white"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => playNextInQueue(song)}
+                      className="hover:bg-gray-700 cursor-pointer"
+                    >
+                      <SkipForward className="w-4 h-4 mr-2" /> Play Next
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => addToQueue(song)}
+                      className="hover:bg-gray-700 cursor-pointer"
+                    >
+                      <ListPlus className="w-4 h-4 mr-2" /> Add to Queue
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           ))}

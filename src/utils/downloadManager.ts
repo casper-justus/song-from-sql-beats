@@ -126,6 +126,25 @@ class DownloadManager {
       });
 
       this.notifyListeners();
+
+      // Add to localStorage
+      try {
+        const downloadedSongs = JSON.parse(localStorage.getItem('downloadedSongsList') || '[]');
+        const existingEntry = downloadedSongs.find((ds: any) => ds.songId === song.id);
+        if (!existingEntry) {
+          downloadedSongs.push({
+            songId: song.id,
+            title: song.title || 'Unknown Title',
+            artist: song.artist || 'Unknown Artist',
+            fileName,
+            downloadedAt: new Date().toISOString(),
+          });
+          localStorage.setItem('downloadedSongsList', JSON.stringify(downloadedSongs));
+        }
+      } catch (e) {
+        console.error("Failed to update localStorage for downloads", e);
+      }
+
       return true;
     } catch (error) {
       console.error('Download failed:', error);

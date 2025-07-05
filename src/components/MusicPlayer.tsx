@@ -45,6 +45,7 @@ const MusicPlayer = () => {
     setShowLyricsDialog,
     setShowQueueDialog,
     addSongToPlaylist,
+    playNextInQueue, // Added playNextInQueue
   } = useMusicPlayer();
 
   const [selectedSongForPlaylist, setSelectedSongForPlaylist] = useState<Song | null>(null);
@@ -388,20 +389,33 @@ const MusicPlayer = () => {
                             <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-gray-800 border-gray-700">
+                        <DropdownMenuContent className="bg-gray-800 border-gray-700 text-white">
+                          <DropdownMenuItem
+                            onClick={(e) => { e.stopPropagation(); playNextInQueue(song); }}
+                            className="hover:bg-gray-700 cursor-pointer"
+                          >
+                            Play Next
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => { e.stopPropagation(); handleAddToQueue(song); }}
+                            className="hover:bg-gray-700 cursor-pointer"
+                          >
+                            Add to Queue
+                          </DropdownMenuItem>
+                          {playlists.length > 0 && <DropdownMenuItem disabled className="border-t border-gray-700 my-1 h-px p-0" />}
                           {playlists.length > 0 ? (
                             playlists.map((playlist) => (
                               <DropdownMenuItem
                                 key={playlist.id}
                                 onClick={() => handleAddSongToPlaylist(playlist.id, song)}
-                                className="text-white hover:bg-gray-700"
+                                className="hover:bg-gray-700 cursor-pointer"
                               >
-                                {playlist.name}
+                                Add to: {playlist.name}
                               </DropdownMenuItem>
                             ))
                           ) : (
-                            <DropdownMenuItem disabled className="text-gray-400">
-                              No playlists available
+                            <DropdownMenuItem disabled className="text-gray-500 italic">
+                              No playlists to add to
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>

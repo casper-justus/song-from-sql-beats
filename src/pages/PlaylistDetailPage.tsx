@@ -7,7 +7,8 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Tables } from '@/integrations/supabase/types';
 import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, ListPlus, Trash2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // Added
+import { ArrowLeft, Play, ListPlus, Trash2, MoreVertical, SkipForward } from 'lucide-react'; // Added MoreVertical, SkipForward
 
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
@@ -17,7 +18,15 @@ const PlaylistDetailPage = () => {
   const { playlistId } = useParams<{ playlistId: string }>();
   const { user } = useUser();
   const { supabase } = useClerkSupabase();
-  const { setQueue, currentSong, isPlaying, togglePlay, addToQueue, removeSongFromPlaylist: removeSongFromPlaylistContext } = useMusicPlayer();
+  const {
+    setQueue,
+    currentSong,
+    isPlaying,
+    // togglePlay, // togglePlay is not directly used for song items here, playFromQueue via setQueue is
+    addToQueue,
+    playNextInQueue, // Added
+    removeSongFromPlaylist: removeSongFromPlaylistContext
+  } = useMusicPlayer();
   const [playlistDetails, setPlaylistDetails] = useState<Playlist | null>(null);
 
   const { data: playlistSongs = [], isLoading, error } = useQuery<PlaylistSongEntry[]>({
@@ -173,9 +182,9 @@ const PlaylistDetailPage = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handlePlaySong(song)}
+                      onClick={() => handlePlaySong(song)} // This sets the queue to the playlist, starting here
                       className="text-gray-300 hover:text-yellow-400 w-8 h-8 sm:w-9 sm:h-9"
-                      title={currentSong?.id === song.id && isPlaying ? "Pause" : "Play"}
+                      title={currentSong?.id === song.id && isPlaying ? "Pause current track" : "Play (start playlist here)"}
                     >
                       {currentSong?.id === song.id && isPlaying ? (
                         <Pause className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -183,24 +192,42 @@ const PlaylistDetailPage = () => {
                         <Play className="w-4 h-4 sm:w-5 sm:h-5" />
                       )}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => addToQueue(song)}
-                      className="text-gray-300 hover:text-yellow-400 w-8 h-8 sm:w-9 sm:h-9"
-                      title="Add to queue"
-                    >
-                      <ListPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </Button>
-                     <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveSongFromPlaylist(song.id)}
-                        className="text-red-500 hover:text-red-400 w-8 h-8 sm:w-9 sm:h-9"
-                        title="Remove from playlist"
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-gray-300 hover:text-yellow-400 w-8 h-8 sm:w-9 sm:h-9"
+                          title="More options"
+                        >
+                          <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        onClick={(e) => e.stopPropagation()} // Prevent row click when menu is open
+                        className="bg-gray-800 border-gray-700 text-white"
                       >
-                        <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </Button>
+                        <DropdownMenuItem
+                          onClick={() => playNextInQueue(song)}
+                          className="hover:bg-gray-700 cursor-pointer"
+                        >
+                          <SkipForward className="w-4 h-4 mr-2" /> Play Next
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => addToQueue(song)}
+                          className="hover:bg-gray-700 cursor-pointer"
+                        >
+                          <ListPlus className="w-4 h-4 mr-2" /> Add to Queue
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleRemoveSongFromPlaylist(song.id)}
+                          className="text-red-500 hover:bg-red-700/50 hover:text-red-400 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" /> Remove from Playlist
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               ))}

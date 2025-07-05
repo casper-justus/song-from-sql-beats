@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Play, Music } from 'lucide-react';
+import { Search, Play, Music, MoreVertical, SkipForward, ListPlus } from 'lucide-react'; // Added icons
 import { supabase } from '@/integrations/supabase/client';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { useToast } from '@/hooks/use-toast';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // Added Dropdown
 import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 
 interface Song {
@@ -31,7 +32,7 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
-  const { selectSong } = useMusicPlayer();
+  const { selectSong, playNextInQueue, addToQueue } = useMusicPlayer(); // Added playNextInQueue, addToQueue
   const { toast } = useToast();
 
   const performSearch = async (query: string) => {
@@ -171,6 +172,36 @@ export default function SearchPage() {
                       >
                         <Play className="w-5 h-5" />
                       </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-300 hover:text-yellow-400 w-8 h-8"
+                            title="More options"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical size={20} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          onClick={(e) => e.stopPropagation()}
+                          className="bg-gray-800 border-gray-700 text-white"
+                        >
+                          <DropdownMenuItem
+                            onClick={() => playNextInQueue(song)}
+                            className="hover:bg-gray-700 cursor-pointer"
+                          >
+                            <SkipForward className="w-4 h-4 mr-2" /> Play Next
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => addToQueue(song)}
+                            className="hover:bg-gray-700 cursor-pointer"
+                          >
+                            <ListPlus className="w-4 h-4 mr-2" /> Add to Queue
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </CardContent>
                 </Card>
