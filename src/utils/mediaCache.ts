@@ -12,7 +12,7 @@ const blobDownloadsInProgress = new Set<string>(); // Tracks song IDs of blobs c
 // Simple in-memory cache for the Supabase token to reduce session.getToken() calls during rapid requests
 let supabaseTokenCache: { token: string; expiresAt: number } | null = null;
 const SUPABASE_TOKEN_CACHE_DURATION_MS = 60 * 1000; // Cache token for 60 seconds
-import { LrcApi } from '@spicysparks/lrc-api'; // Changed to named import
+import * as LrcApiModule from '@spicysparks/lrc-api'; // Changed to namespace import
 
 // Enhanced device detection for mobile optimization
 const getDeviceType = () => {
@@ -342,7 +342,8 @@ export async function startBackgroundPrefetch(
 /**
  * Enhanced lyrics fetching with better caching, trying lrc-api first.
  */
-const lrcApi = new LrcApi(); // Instantiate the API client
+// @ts-ignore
+const lrcApi = new LrcApiModule.LrcApi(); // Instantiate the API client
 
 export async function fetchLyricsContent(
   title: string,
