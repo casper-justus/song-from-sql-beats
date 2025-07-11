@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react'; // Removed useState
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@clerk/clerk-react';
@@ -7,12 +7,17 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Tables } from '@/integrations/supabase/types';
 import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // Added
-import { ArrowLeft, Play, ListPlus, Trash2, MoreVertical, SkipForward } from 'lucide-react'; // Added MoreVertical, SkipForward
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ArrowLeft, Play, ListPlus, Trash2, MoreVertical, SkipForward, Pause } from 'lucide-react';
 
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
 type PlaylistSongEntry = Tables<'playlist_songs'> & { songs: Song | null };
+
+interface PlaylistPageData {
+  playlistDetails: Playlist | null;
+  playlistSongs: PlaylistSongEntry[];
+}
 
 const PlaylistDetailPage = () => {
   const { playlistId } = useParams<{ playlistId: string }>();
@@ -22,50 +27,64 @@ const PlaylistDetailPage = () => {
     setQueue,
     currentSong,
     isPlaying,
-    // togglePlay, // togglePlay is not directly used for song items here, playFromQueue via setQueue is
     addToQueue,
-    playNextInQueue, // Added
+    playNextInQueue,
     removeSongFromPlaylist: removeSongFromPlaylistContext
   } = useMusicPlayer();
-  const [playlistDetails, setPlaylistDetails] = useState<Playlist | null>(null);
+  // Removed: const [playlistDetails, setPlaylistDetails] = useState<Playlist | null>(null);
 
-  const { data: playlistSongs = [], isLoading, error } = useQuery<PlaylistSongEntry[]>({
-    queryKey: ['playlistSongs', playlistId, user?.id],
+  const { data, isLoading, error } = useQuery<PlaylistPageData>({
+    queryKey: ['playlistPageData', playlistId, user?.id], // Changed queryKey to reflect combined data
     queryFn: async () => {
-      if (!playlistId || !user || !supabase) return [];
-
-      // Fetch playlist details
-      const { data: playlistData, error: playlistError } = await supabase
-        .from('playlists')
-        .select('*')
-        .eq('id', playlistId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (playlistError || !playlistData) {
-        console.error('Error fetching playlist details:', playlistError);
-        throw new Error('Playlist not found or access denied.');
+      if (!playlistId || !user || !supabase) {
+        // Ensure a consistent return type even if conditions aren't met
+        return { playlistDetails: null, playlistSongs: [] };
       }
-      setPlaylistDetails(playlistData);
 
-      // Fetch songs for the playlist
-      const { data, error: songsError } = await supabase
-        .from('playlist_songs')
-        .select(`
-          *,
-          songs (*)
-        `)
-        .eq('playlist_id', playlistId)
-        .order('song_order', { ascending: true });
+      const [playlistDetailsResult, playlistSongsResult] = await Promise.all([
+        supabase
+          .from('playlists')
+          .select('*')
+          .eq('id', playlistId)
+          .eq('user_id', user.id)
+          .single(),
+        supabase
+          .from('playlist_songs')
+          .select(`
+            *,
+            songs (*)
+          `)
+          .eq('playlist_id', playlistId)
+          .order('song_order', { ascending: true })
+      ]);
 
+      const { data: playlistData, error: playlistError } = playlistDetailsResult;
+      if (playlistError || !playlistData) {
+        // Log the error but allow the component to handle the null playlistDetails
+        console.error('Error fetching playlist details:', playlistError?.message);
+        // Depending on requirements, you might throw new Error('Playlist not found or access denied.');
+        // For now, returning null allows the component to render a "not found" state.
+      }
+
+      const { data: songsData, error: songsError } = playlistSongsResult;
       if (songsError) {
         console.error('Error fetching songs for playlist:', songsError);
-        throw songsError;
+        // Rethrow or handle as appropriate. For now, let's return empty songs on error.
+        // throw songsError; // Or handle more gracefully
+        return { playlistDetails: playlistData || null, playlistSongs: [] };
       }
-      return data.filter(item => item.songs !== null) as PlaylistSongEntry[];
+
+      const filteredSongs = (songsData || []).filter(item => item.songs !== null) as PlaylistSongEntry[];
+
+      return { playlistDetails: playlistData || null, playlistSongs: filteredSongs };
     },
     enabled: !!playlistId && !!user && !!supabase,
   });
+
+  // Extract playlistDetails and playlistSongs from the combined data object
+  const playlistDetails = data?.playlistDetails;
+  const playlistSongs = data?.playlistSongs || [];
+
 
   const handlePlayPlaylist = () => {
     const songsInPlaylist = playlistSongs.map(ps => ps.songs).filter(Boolean) as Song[];

@@ -7,6 +7,7 @@ const preloadQueue = new Map<string, Promise<string | null>>(); // Stores promis
 const audioBlobCache = new Map<string, Blob>(); // Stores fully preloaded audio Blobs
 const priorityQueue = new Set<string>(); // Tracks song IDs that are high priority for preloading
 const prefetchQueue = new Set<string>(); // Tracks song IDs currently being prefetched (URL or Blob)
+const blobDownloadsInProgress = new Set<string>(); // Tracks song IDs of blobs currently being downloaded
 
 // Simple in-memory cache for the Supabase token to reduce session.getToken() calls during rapid requests
 let supabaseTokenCache: { token: string; expiresAt: number } | null = null;
@@ -285,13 +286,17 @@ export async function startBackgroundPrefetch(
           const resolvedAudioUrl = await audioPromise;
           if (resolvedAudioUrl) {
             console.log(`✅ Resolved URL for audio: ${song.title}`);
-            // If it's a high priority song and not already blob-cached, try to fetch its blob
-            // For simplicity, let's try to fully preload the very next song (index 0 of high priority batch)
-            // More sophisticated logic would manage a small number of blob caches.
-            if (priority === 'high' && batch.findIndex(p => p.song.id === song.id) < 2 && !audioBlobCache.has(song.id)) { // Prefetch blob for next 2 high prio
-              console.log(`🚀 Attempting to fully preload high-priority audio: ${song.title}`);
-              try {
-                const response = await fetch(resolvedAudioUrl);
+            // If it's a high priority song and not already blob-cached, try to fetch its blob.
+            // Aim to fill the audioBlobCache with high-priority upcoming tracks.
+            if (priority === 'high' && !audioBlobCache.has(song.id) && !blobDownloadsInProgress.has(song.id)) {
+              // Control concurrent blob downloads:
+              // Don't start a new blob download if the number of items already in cache + those being downloaded
+              // already meets or exceeds the max cache size.
+              if (audioBlobCache.size + blobDownloadsInProgress.size < MAX_AUDIO_BLOB_CACHE_SIZE) {
+                console.log(`🚀 Attempting to fully preload high-priority audio: ${song.title} (Cache size: ${audioBlobCache.size}, Active Blob Downloads: ${blobDownloadsInProgress.size})`);
+                blobDownloadsInProgress.add(song.id); // Add before starting fetch
+                try {
+                  const response = await fetch(resolvedAudioUrl);
                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                 const blob = await response.blob();
                 audioBlobCache.set(song.id, blob);
@@ -506,7 +511,7 @@ export function optimizeCache() {
 const cacheOptimizationInterval = getDeviceType() === 'mobile' ? 45000 : 90000; // 45s-90s
 setInterval(optimizeCache, cacheOptimizationInterval);
 
-const MAX_AUDIO_BLOB_CACHE_SIZE = 3; // Keep, for example, current/next + one previous or two next
+const MAX_AUDIO_BLOB_CACHE_SIZE = 5; // Increased from 3 to 5
 
 function manageAudioBlobCache(newlyAddedSongId?: string) {
   // If a newly added song ID is provided, ensure it's not evicted immediately if possible
