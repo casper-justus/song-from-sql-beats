@@ -12,7 +12,7 @@ const blobDownloadsInProgress = new Set<string>(); // Tracks song IDs of blobs c
 // Simple in-memory cache for the Supabase token to reduce session.getToken() calls during rapid requests
 let supabaseTokenCache: { token: string; expiresAt: number } | null = null;
 const SUPABASE_TOKEN_CACHE_DURATION_MS = 60 * 1000; // Cache token for 60 seconds
-import LrcApi from '@spicysparks/lrc-api'; // Import the new library
+import { LrcApi } from '@spicysparks/lrc-api'; // Changed to named import
 
 // Enhanced device detection for mobile optimization
 const getDeviceType = () => {
@@ -272,46 +272,47 @@ export async function startBackgroundPrefetch(
     const batchPromises = batch.map(async ({ song, priority }) => {
       const audioFileKey = song.storage_path || song.file_url;
       const coverKey = song.cover_url;
-      
+
       if (audioFileKey && !prefetchQueue.has(song.id)) {
         prefetchQueue.add(song.id);
         const audioPromise = resolveUrl(audioFileKey, true, priority);
-        preloadQueue.set(song.id, audioPromise); // Store the promise for the URL
+        preloadQueue.set(song.id, audioPromise);
 
         if (priority === 'high') {
           priorityQueue.add(song.id);
         }
         
-        try {
+        try { // Outer try for URL resolution and blob logic
           const resolvedAudioUrl = await audioPromise;
-          if (resolvedAudioUrl) {
+          if (resolvedAudioUrl) { // IF #A - for resolvedAudioUrl
             console.log(`✅ Resolved URL for audio: ${song.title}`);
-            // If it's a high priority song and not already blob-cached, try to fetch its blob.
-            // Aim to fill the audioBlobCache with high-priority upcoming tracks.
-            if (priority === 'high' && !audioBlobCache.has(song.id) && !blobDownloadsInProgress.has(song.id)) {
-              // Control concurrent blob downloads:
-              // Don't start a new blob download if the number of items already in cache + those being downloaded
-              // already meets or exceeds the max cache size.
-              if (audioBlobCache.size + blobDownloadsInProgress.size < MAX_AUDIO_BLOB_CACHE_SIZE) {
+
+            if (priority === 'high' && !audioBlobCache.has(song.id) && !blobDownloadsInProgress.has(song.id)) { // IF #B - for attempting blob download
+              if (audioBlobCache.size + blobDownloadsInProgress.size < MAX_AUDIO_BLOB_CACHE_SIZE) { // IF #C - for limiting concurrent downloads
                 console.log(`🚀 Attempting to fully preload high-priority audio: ${song.title} (Cache size: ${audioBlobCache.size}, Active Blob Downloads: ${blobDownloadsInProgress.size})`);
-                blobDownloadsInProgress.add(song.id); // Add before starting fetch
-                try {
+                blobDownloadsInProgress.add(song.id);
+                try { // Inner try for blob fetching
                   const response = await fetch(resolvedAudioUrl);
-                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                const blob = await response.blob();
-                audioBlobCache.set(song.id, blob);
-                manageAudioBlobCache(song.id); // Manage cache size
-                console.log(`✅ Fully preloaded audio blob for: ${song.title}. Blob cache size: ${audioBlobCache.size}`);
-              } catch (blobError) {
-                console.warn(`❌ Failed to fully preload audio blob for ${song.title}:`, blobError);
-              }
-            }
-          }
-        } catch (error) {
+                  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                  const blob = await response.blob();
+                  audioBlobCache.set(song.id, blob);
+                  manageAudioBlobCache(song.id);
+                  console.log(`✅ Fully preloaded audio blob for: ${song.title}. Blob cache size: ${audioBlobCache.size}`);
+                } catch (blobError) {
+                  console.warn(`❌ Failed to fully preload audio blob for ${song.title}:`, blobError);
+                } finally {
+                  blobDownloadsInProgress.delete(song.id);
+                } // Closes Inner try-catch-finally
+              } else { // ELSE for IF #C
+                console.log(`[Cache] Holding off blob download for ${song.title}, cache/download limit reached (Size: ${audioBlobCache.size}, InProgress: ${blobDownloadsInProgress.size})`);
+              } // Closes ELSE for IF #C
+            } // Closes IF #B
+          } // Closes IF #A
+        } catch (error) { // Catch for Outer try
           console.warn(`❌ Failed to resolve/preload audio for ${song.title}:`, error);
-        }
-      }
-      
+        } // Closes Outer try-catch
+      } // Closes: if (audioFileKey && !prefetchQueue.has(song.id))
+
       // Prefetch covers more aggressively
       if (coverKey && !prefetchQueue.has(`cover-${song.id}`)) {
         prefetchQueue.add(`cover-${song.id}`);
@@ -323,7 +324,7 @@ export async function startBackgroundPrefetch(
           console.warn(`❌ Failed to prefetch cover for ${song.title}:`, error);
         });
       }
-    });
+    }); // End of batch.map callback
 
     await Promise.allSettled(batchPromises);
     
