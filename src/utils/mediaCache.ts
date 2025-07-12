@@ -12,7 +12,7 @@ const blobDownloadsInProgress = new Set<string>(); // Tracks song IDs of blobs c
 // Simple in-memory cache for the Supabase token to reduce session.getToken() calls during rapid requests
 let supabaseTokenCache: { token: string; expiresAt: number } | null = null;
 const SUPABASE_TOKEN_CACHE_DURATION_MS = 60 * 1000; // Cache token for 60 seconds
-import * as LrcApiModule from '@spicysparks/lrc-api'; // Changed to namespace import
+// Removed import for @spicysparks/lrc-api
 
 // Enhanced device detection for mobile optimization
 const getDeviceType = () => {
@@ -340,66 +340,29 @@ export async function startBackgroundPrefetch(
 }
 
 /**
- * Enhanced lyrics fetching with better caching, trying lrc-api first.
+ * Enhanced lyrics fetching. Now only uses direct LRC file fetching.
  */
-// @ts-ignore
-const lrcApi = new LrcApiModule.LrcApi(); // Instantiate the API client
+// Removed: const lrcApi = new LrcApiModule.LrcApi();
 
 export async function fetchLyricsContent(
-  title: string,
+  title: string, // title and artist are kept for potential future use or if fetchDirectLrcFile needs them
   artist: string,
-  lyricsUrl?: string | null, // Make lyricsUrl optional
-  session?: any // Session might still be needed if fetching from lyricsUrl
+  lyricsUrl?: string | null,
+  session?: any
 ): Promise<string> {
-  if (!title || !artist) {
-    console.warn('[Lyrics] Title or artist missing, cannot fetch from API.');
-    // Fallback to lyricsUrl if provided
-    if (lyricsUrl && session) {
-        return fetchDirectLrcFile(lyricsUrl, session);
-    }
-    return 'Lyrics not available (missing title/artist).';
-  }
+  // Removed the section that tries to use lrcApi.getLyrics()
 
-  try {
-    console.log(`[Lyrics] Attempting to fetch LRC for: ${artist} - ${title} via @spicysparks/lrc-api`);
-    const result = await lrcApi.getLyrics({ artist, title, // album and duration are optional
-    });
-
-    if (result && result.lyrics && result.lyrics.length > 0) {
-      // Assuming result.lyrics is an array of LRC line objects, we need to format it back to string
-      // Or check if there's a direct LRC string property.
-      // For now, let's assume result.syncedLyrics is the LRC string if available, or build from lines.
-      // The library's own docs are sparse, so this is an educated guess.
-      // Let's check the structure of 'result'.
-      console.log('[Lyrics] API Result:', result);
-      if (typeof result.syncedLyrics === 'string' && result.syncedLyrics.trim() !== '') {
-        console.log('[Lyrics] Found syncedLyrics string from API');
-        return result.syncedLyrics;
-      }
-      if (Array.isArray(result.lyrics) && result.lyrics.length > 0 && result.lyrics[0].text !== undefined && result.lyrics[0].time !== undefined) {
-         // Reconstruct LRC string if it provides lines
-         console.log('[Lyrics] Reconstructing LRC from API lines');
-         return result.lyrics.map((line: { time: { minutes: number, seconds: number, milliseconds: number }, text: string }) =>
-           `[${String(line.time.minutes).padStart(2, '0')}:${String(line.time.seconds).padStart(2, '0')}.${String(line.time.milliseconds).padStart(3, '0').slice(0,2)}]${line.text}`
-         ).join('\n');
-      }
-      if (typeof result.lyrics === 'string' && result.lyrics.trim() !== '') { // some libs might just return a string
-        console.log('[Lyrics] Found lyrics string from API');
-        return result.lyrics;
-      }
-    }
-    console.log('[Lyrics] No lyrics found via API or result format unexpected.');
-  } catch (apiError) {
-    console.error('[Lyrics] Error fetching from @spicysparks/lrc-api:', apiError);
-  }
-
-  // Fallback to direct lyricsUrl if API fails or returns nothing
+  // Fallback to direct lyricsUrl if available
   if (lyricsUrl && session) {
-    console.log(`[Lyrics] Falling back to lyrics_url: ${lyricsUrl}`);
+    // console.log(`[Lyrics] Attempting to fetch lyrics from direct URL: ${lyricsUrl}`);
     return fetchDirectLrcFile(lyricsUrl, session);
   }
 
-  return 'Synced lyrics not found.';
+  // If no lyricsUrl, or if title/artist were intended for an API that's now removed
+  if (!lyricsUrl) {
+      console.log('[Lyrics] No lyrics URL provided and API service removed.');
+  }
+  return 'Lyrics not available for this song.'; // Generic message if no URL or API failed
 }
 
 // Helper for the original direct LRC file fetching logic
