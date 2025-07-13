@@ -42,7 +42,7 @@ const extractColorsFromImage = (imageUrl: string): Promise<string[]> => {
 
 
 export function DynamicBackground() {
-  const { currentSong, isPlaying, currentTime, audioRef } = useMusicPlayer();
+  const { currentSong, isPlaying, currentTime, activePlayerRef } = useMusicPlayer();
   const { session } = useSession();
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [dominantColors, setDominantColors] = useState<string[]>(['#1a1a1a', '#2a2a2a']);
@@ -109,7 +109,7 @@ export function DynamicBackground() {
   const animationFrameIdRef = React.useRef<number | null>(null);
 
   useEffect(() => {
-    if (isPlaying && audioRef?.current && currentSong && !audioContextRef.current) {
+    if (isPlaying && activePlayerRef?.current && currentSong && !audioContextRef.current) {
       try {
         const context = new (window.AudioContext || (window as any).webkitAudioContext)();
         audioContextRef.current = context;
@@ -120,7 +120,7 @@ export function DynamicBackground() {
         if (sourceRef.current) {
             sourceRef.current.disconnect();
         }
-        sourceRef.current = context.createMediaElementSource(audioRef.current);
+        sourceRef.current = context.createMediaElementSource(activePlayerRef.current);
 
         sourceRef.current.connect(analyserRef.current);
         analyserRef.current.connect(context.destination); // Connect analyser to output to hear sound
@@ -164,7 +164,7 @@ export function DynamicBackground() {
       // Consider more robust cleanup if context/nodes persist across song changes
       // For now, this effect re-runs on isPlaying or currentSong change
     };
-  }, [isPlaying, currentSong, audioRef]);
+  }, [isPlaying, currentSong, activePlayerRef]);
 
 
   useEffect(() => {

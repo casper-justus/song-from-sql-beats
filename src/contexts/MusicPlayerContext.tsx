@@ -48,7 +48,7 @@ interface MusicPlayerContextType {
   addSongToPlaylist: (playlistId: string, songId: string) => Promise<void>;
   removeSongFromPlaylist: (playlistId: string, songId: string) => Promise<void>;
   deletePlaylist: (playlistId: string) => Promise<void>;
-  // audioRef is now managed internally by the new useAudioPlayer hook
+  activePlayerRef: React.RefObject<HTMLAudioElement>;
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(undefined);
@@ -507,6 +507,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       addSongToPlaylist: playlistOps.addSongToPlaylist,
       removeSongFromPlaylist: playlistOps.removeSongFromPlaylist,
       deletePlaylist: playlistOps.deletePlaylist,
+      activePlayerRef,
     }}>
       {children}
       <audio ref={audioRefA} preload="auto" crossOrigin="anonymous" />
