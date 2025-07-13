@@ -476,7 +476,7 @@ export function optimizeCache() {
 const cacheOptimizationInterval = getDeviceType() === 'mobile' ? 45000 : 90000; // 45s-90s
 setInterval(optimizeCache, cacheOptimizationInterval);
 
-const MAX_AUDIO_BLOB_CACHE_SIZE = 5; // Increased from 3 to 5
+const MAX_AUDIO_BLOB_CACHE_SIZE = 10; // Increased from 5 to 10 for more aggressive caching
 
 function manageAudioBlobCache(newlyAddedSongId?: string) {
   // If a newly added song ID is provided, ensure it's not evicted immediately if possible
