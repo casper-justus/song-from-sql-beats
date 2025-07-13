@@ -4,8 +4,57 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { resolveMediaUrl } from '@/utils/mediaCache';
 import { useSession } from '@clerk/clerk-react';
 
+const getYouTubeThumbnailUrl = (videoId: string) => `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+const extractColorsFromImage = (imageUrl: string): Promise<string[]> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = imageUrl;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) {
+        return reject(new Error('Could not get canvas context'));
+      }
+      canvas.width = img.width;
+      canvas.height = img.height;
+      context.drawImage(img, 0, 0);
+
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const colorCounts: { [key: string]: number } = {};
+      let maxCount = 0;
+      let dominantColor = '#1a1a1a';
+
+      for (let i = 0; i < imageData.length; i += 4) {
+        const r = imageData[i];
+        const g = imageData[i+1];
+        const b = imageData[i+2];
+        // Skip colors that are too dark or too white
+        if (r < 20 && g < 20 && b < 20 || r > 235 && g > 235 && b > 235) continue;
+
+        const color = `rgb(${r},${g},${b})`;
+        colorCounts[color] = (colorCounts[color] || 0) + 1;
+        if (colorCounts[color] > maxCount) {
+          maxCount = colorCounts[color];
+          dominantColor = color;
+        }
+      }
+
+      // Basic logic to generate a complementary color for a gradient
+      const [r, g, b] = dominantColor.match(/\d+/g)!.map(Number);
+      const secondaryColor = `rgb(${Math.max(0, r-40)}, ${Math.max(0, g-40)}, ${Math.max(0, b-40)})`;
+      const tertiaryColor = `rgb(${Math.max(0, r-60)}, ${Math.max(0, g-60)}, ${Math.max(0, b-60)})`;
+
+      resolve([dominantColor, secondaryColor, tertiaryColor]);
+    };
+    img.onerror = (err) => reject(err);
+  });
+};
+
+
 export function DynamicBackground() {
-  const { currentSong, isPlaying, currentTime, audioRef } = useMusicPlayer(); // Added audioRef
+  const { currentSong, isPlaying, currentTime, audioRef } = useMusicPlayer();
   const { session } = useSession();
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [dominantColors, setDominantColors] = useState<string[]>(['#1a1a1a', '#2a2a2a']);
@@ -22,29 +71,25 @@ export function DynamicBackground() {
       setIsLoading(true);
       
       try {
-        console.log('[DynamicBackground] currentSong:', currentSong);
-        if (currentSong.cover_url) {
-          console.log('[DynamicBackground] Loading background image for:', currentSong.title, 'Cover URL:', currentSong.cover_url);
-          const resolvedImageUrl = await resolveMediaUrl(currentSong.cover_url, session, false, 'high');
-          console.log('[DynamicBackground] Resolved image URL:', resolvedImageUrl);
-          if (resolvedImageUrl) {
-            setBackgroundImage(resolvedImageUrl);
-            const colors = generateColorsFromText(currentSong.title + (currentSong.artist || ''));
+        let imageUrl: string | null = null;
+        if (currentSong.video_id) {
+            imageUrl = getYouTubeThumbnailUrl(currentSong.video_id);
+        } else if (currentSong.cover_url) {
+            imageUrl = await resolveMediaUrl(currentSong.cover_url, session, false, 'high');
+        }
+
+        if (imageUrl) {
+          setBackgroundImage(imageUrl);
+          try {
+            const colors = await extractColorsFromImage(imageUrl);
             setDominantColors(colors);
-            console.log('[DynamicBackground] Background image loaded successfully. Dominant colors:', colors);
-          } else {
-            console.log('[DynamicBackground] No resolved image URL, using color scheme');
-            setBackgroundImage(null);
-            const colors = generateColorsFromText(currentSong.title + (currentSong.artist || ''));
-            setDominantColors(colors);
-            console.log('[DynamicBackground] Fallback dominant colors:', colors);
+          } catch (e) {
+            console.error("Error extracting colors, falling back.", e);
+            setDominantColors(['#1a1a1a', '#2a2a2a']); // Fallback
           }
         } else {
-          console.log('[DynamicBackground] No cover URL, generating colors from text');
           setBackgroundImage(null);
-          const colors = generateColorsFromText(currentSong.title + (currentSong.artist || ''));
-          setDominantColors(colors);
-          console.log('[DynamicBackground] Fallback dominant colors (no cover_url):', colors);
+          setDominantColors(['#1a1a1a', '#2a2a2a']); // Fallback
         }
       } catch (error) {
         console.error('[DynamicBackground] Error updating background:', error);
@@ -57,23 +102,6 @@ export function DynamicBackground() {
 
     updateBackground();
   }, [currentSong, session]);
-
-  const generateColorsFromText = (text: string): string[] => {
-    let hash = 0;
-    for (let i = 0; i < text.length; i++) {
-      hash = text.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    
-    const hue1 = Math.abs(hash) % 360;
-    const hue2 = (hue1 + 60) % 360;
-    const hue3 = (hue1 + 120) % 360;
-    
-    return [
-      `hsl(${hue1}, 70%, 25%)`,
-      `hsl(${hue2}, 60%, 20%)`,
-      `hsl(${hue3}, 65%, 22%)`
-    ];
-  };
 
   // Audio visualizer effect based on playing state and time
   const getVisualizerIntensity = () => {
