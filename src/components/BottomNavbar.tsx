@@ -55,11 +55,7 @@ export function BottomNavbar() {
 
   return (
     <div
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 w-11/12 max-w-md h-16 sm:h-20 rounded-full shadow-2xl flex items-center justify-between px-3 sm:px-6 space-x-2 sm:space-x-3 backdrop-blur-lg border border-white/20 relative overflow-hidden transition-all duration-500 z-50"
-      style={{ 
-        backgroundColor: dominantColor,
-        boxShadow: `0 8px 32px ${dominantColor}40, 0 0 0 1px ${dominantColor}20`
-      }}
+      className="fixed bottom-0 left-0 right-0 h-20 bg-black/30 backdrop-blur-lg border-t border-white/10 flex items-center justify-between px-4 z-50"
     >
       {/* Album Art & Info */}
       <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink min-w-0">
@@ -142,11 +138,11 @@ export function BottomNavbar() {
         </Button>
       </div>
 
-      {/* Progress Bar - Properly contained within the navbar */}
-      <div className="absolute bottom-1 left-3 right-3 sm:left-4 sm:right-4 h-1 bg-black/10 rounded-full overflow-hidden">
+      {/* Progress Bar - Now it's part of the main layout, not absolutely positioned */}
+      <div className="absolute top-0 left-0 right-0 h-1">
         <div
-          className="h-full bg-gray-800 transition-all duration-300 rounded-full"
-          style={{ width: `${Math.min(Math.max(progressPercentage, 0), 100)}%` }}
+          className="h-full bg-yellow-400 transition-all duration-200"
+          style={{ width: `${progressPercentage}%` }}
         />
       </div>
     </div>

@@ -20,7 +20,6 @@ import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
 import PlaylistDetailPage from "./pages/PlaylistDetailPage"; // Added import
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
-import { NowPlayingBar } from "./components/NowPlayingBar";
 import { BottomNavbar } from "./components/BottomNavbar";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { DynamicBackground } from "./components/DynamicBackground";
@@ -42,7 +41,6 @@ const ConditionalBottomNavigation = () => {
   if (!isSignedIn) return null;
   return (
     <>
-      <NowPlayingBar />
       <BottomNavbar />
       <BottomNavigation />
     </>
