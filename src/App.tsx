@@ -20,6 +20,7 @@ import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
 import PlaylistDetailPage from "./pages/PlaylistDetailPage"; // Added import
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
+import { TopNavbar } from "./components/TopNavbar";
 import { BottomNavbar } from "./components/BottomNavbar";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { DynamicBackground } from "./components/DynamicBackground";
@@ -54,7 +55,8 @@ const AppContent = () => {
   return (
     <div className="min-h-screen relative">
       <DynamicBackground />
-      <div className="relative z-10 pb-40"> {/* Increased bottom padding for both bars */}
+      <TopNavbar />
+      <div className="relative z-10 pt-24 pb-40"> {/* Added top padding for new navbar */}
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />

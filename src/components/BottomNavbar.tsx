@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Heart, List } from 'lucide-react';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ export function BottomNavbar() {
     playNext,
     playPrevious,
     setShowQueueDialog,
+    activePlayerRef,
   } = useMusicPlayer();
 
   const [dominantColor, setDominantColor] = useState('#F9C901');
@@ -53,52 +54,130 @@ export function BottomNavbar() {
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const animationFrameIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isPlaying && activePlayerRef?.current && !sourceRef.current) {
+        try {
+            const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const source = context.createMediaElementSource(activePlayerRef.current);
+            const analyser = context.createAnalyser();
+
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            analyser.connect(context.destination);
+
+            audioContextRef.current = context;
+            sourceRef.current = source;
+            analyserRef.current = analyser;
+            dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+        } catch (e) {
+            console.error("Error setting up Web Audio API for visualizer:", e);
+        }
+    }
+  }, [isPlaying, activePlayerRef, currentSong]);
+
+  useEffect(() => {
+    const drawVisualizer = () => {
+      if (!analyserRef.current || !canvasRef.current || !dataArrayRef.current) {
+        animationFrameIdRef.current = requestAnimationFrame(drawVisualizer);
+        return;
+      }
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const bufferLength = analyserRef.current.frequencyBinCount;
+      const barWidth = (canvas.width / bufferLength) * 2;
+      let barHeight;
+      let x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        barHeight = dataArrayRef.current[i] / 2;
+        const mainColor = dominantColor || '#F9C901';
+        ctx.fillStyle = mainColor;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+        x += barWidth + 1;
+      }
+      animationFrameIdRef.current = requestAnimationFrame(drawVisualizer);
+    };
+
+    if (isPlaying) {
+      drawVisualizer();
+    } else {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
+    }
+    return () => {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
+    };
+  }, [isPlaying, dominantColor]);
+
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 h-20 bg-black/30 backdrop-blur-lg border-t border-white/10 flex items-center justify-between px-4 z-50"
+      className="fixed bottom-0 left-0 right-0 h-24 bg-black/10 backdrop-blur-xl border-t border-white/10 flex items-center justify-between px-4 z-50"
     >
+        <canvas
+            ref={canvasRef}
+            width={window.innerWidth}
+            height={96} // h-24
+            className="absolute top-0 left-0 w-full -translate-y-full opacity-75"
+        />
+      {/* Progress Bar at the top */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-white/10">
+        <div
+          className="h-full bg-white transition-all duration-200"
+          style={{ width: `${progressPercentage}%` }}
+        />
+      </div>
+
       {/* Album Art & Info */}
-      <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink min-w-0">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <ResolvedCoverImage
           imageKey={currentSong.cover_url}
           videoId={currentSong.video_id}
           altText={currentSong.title || 'Album cover'}
-          className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-white/30 shadow-lg"
+          className="w-14 h-14 rounded-md object-cover shadow-lg"
         />
         <div className="flex flex-col min-w-0">
-          <p className="text-xs sm:text-sm md:text-base font-bold text-gray-900 truncate max-w-[120px] sm:max-w-[200px]">
-            {currentSong.title?.substring(0, 30) || "Unknown Title"}
+          <p className="font-bold text-white truncate">
+            {currentSong.title || "Unknown Title"}
           </p>
-          <p className="text-xs text-gray-700 truncate max-w-[120px] sm:max-w-[180px]">
-            {currentSong.artist?.substring(0, 25) || "Unknown Artist"}
-          </p>
-          <p className="text-xs text-gray-600 hidden sm:block">
-            {currentQueueIndex + 1} of {queue.length}
+          <p className="text-sm text-white/70 truncate">
+            {currentSong.artist || "Unknown Artist"}
           </p>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+      <div className="flex items-center gap-2 flex-shrink-0">
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={playPrevious} 
-          className="text-gray-800 hover:bg-black/10 rounded-full w-8 h-8 sm:w-10 sm:h-10 transition-all"
+          className="text-white/80 hover:bg-white/20 rounded-full w-10 h-10"
         >
-          <SkipBack className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+          <SkipBack className="w-5 h-5" />
         </Button>
         
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={togglePlay} 
-          className="text-gray-800 hover:bg-black/10 rounded-full w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white/20 backdrop-blur-sm shadow-lg"
+          className="text-white bg-white/20 hover:bg-white/30 rounded-full w-14 h-14"
         >
           {isPlaying ? (
-            <Pause className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+            <Pause className="w-6 h-6" />
           ) : (
-            <Play className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+            <Play className="w-6 h-6" />
           )}
         </Button>
         
@@ -106,44 +185,33 @@ export function BottomNavbar() {
           variant="ghost" 
           size="icon" 
           onClick={playNext} 
-          className="text-gray-800 hover:bg-black/10 rounded-full w-8 h-8 sm:w-10 sm:h-10 transition-all"
+          className="text-white/80 hover:bg-white/20 rounded-full w-10 h-10"
         >
-          <SkipForward className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+          <SkipForward className="w-5 h-5" />
         </Button>
       </div>
 
-      {/* Right side buttons */}
-      <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-        {/* Queue Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setShowQueueDialog(true)}
-          className="text-gray-800 hover:bg-black/10 rounded-full w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 transition-all"
-        >
-          <List className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-        </Button>
-        
-        {/* Like Button */}
+      {/* Right side actions - Spaced out for a cleaner look */}
+      <div className="flex items-center gap-4 flex-1 justify-end">
         <Button
           variant="ghost"
           size="icon"
           onClick={handleLikeClick}
           className={cn(
-            "text-gray-800 hover:bg-black/10 rounded-full w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 transition-all",
-            isCurrentSongLiked && "text-red-600"
+            "text-white/70 hover:text-white",
+            isCurrentSongLiked && "text-red-500"
           )}
         >
-          <Heart className={cn("w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5", isCurrentSongLiked && "fill-current")} />
+          <Heart className={cn("w-5 h-5", isCurrentSongLiked && "fill-current")} />
         </Button>
-      </div>
-
-      {/* Progress Bar - Now it's part of the main layout, not absolutely positioned */}
-      <div className="absolute top-0 left-0 right-0 h-1">
-        <div
-          className="h-full bg-yellow-400 transition-all duration-200"
-          style={{ width: `${progressPercentage}%` }}
-        />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowQueueDialog(true)}
+          className="text-white/70 hover:text-white"
+        >
+          <List className="w-5 h-5" />
+        </Button>
       </div>
     </div>
   );
