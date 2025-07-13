@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { resolveMediaUrl } from '@/utils/mediaCache';
 import { useSession } from '@clerk/clerk-react';
