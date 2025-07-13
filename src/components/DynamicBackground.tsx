@@ -13,40 +13,28 @@ const extractColorsFromImage = (imageUrl: string): Promise<string[]> => {
     img.src = imageUrl;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext('2d', { willReadFrequently: true });
       if (!context) {
         return reject(new Error('Could not get canvas context'));
       }
-      canvas.width = img.width;
-      canvas.height = img.height;
-      context.drawImage(img, 0, 0);
 
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      const colorCounts: { [key: string]: number } = {};
-      let maxCount = 0;
-      let dominantColor = '#1a1a1a';
+      // Draw the image onto a 1x1 canvas to get the average color
+      canvas.width = 1;
+      canvas.height = 1;
+      context.drawImage(img, 0, 0, 1, 1);
 
-      for (let i = 0; i < imageData.length; i += 4) {
-        const r = imageData[i];
-        const g = imageData[i+1];
-        const b = imageData[i+2];
-        // Skip colors that are too dark or too white
-        if (r < 20 && g < 20 && b < 20 || r > 235 && g > 235 && b > 235) continue;
+      const data = context.getImageData(0, 0, 1, 1).data;
+      const r = data[0];
+      const g = data[1];
+      const b = data[2];
 
-        const color = `rgb(${r},${g},${b})`;
-        colorCounts[color] = (colorCounts[color] || 0) + 1;
-        if (colorCounts[color] > maxCount) {
-          maxCount = colorCounts[color];
-          dominantColor = color;
-        }
-      }
+      const avgColor = `rgb(${r},${g},${b})`;
 
-      // Basic logic to generate a complementary color for a gradient
-      const [r, g, b] = dominantColor.match(/\d+/g)!.map(Number);
+      // Generate a simple gradient from the average color
       const secondaryColor = `rgb(${Math.max(0, r-40)}, ${Math.max(0, g-40)}, ${Math.max(0, b-40)})`;
       const tertiaryColor = `rgb(${Math.max(0, r-60)}, ${Math.max(0, g-60)}, ${Math.max(0, b-60)})`;
 
-      resolve([dominantColor, secondaryColor, tertiaryColor]);
+      resolve([avgColor, secondaryColor, tertiaryColor]);
     };
     img.onerror = (err) => reject(err);
   });
@@ -202,8 +190,11 @@ export function DynamicBackground() {
       for (let i = 0; i < bufferLength; i++) {
         barHeight = dataArrayRef.current[i] * (canvas.height / 255) * 0.8; // Scale bar height
 
-        // Simple white bars for now
-        ctx.fillStyle = `rgba(255, 255, 255, ${barHeight / canvas.height * 1.5 + 0.2})`; // Opacity based on height
+        // Use dominant color for the bars
+        const mainColor = dominantColors[0] || 'rgb(255,255,255)';
+        const opacity = barHeight / canvas.height * 1.5 + 0.2;
+        // Dominant color is in `rgb(r,g,b)` format, so we can convert to rgba
+        ctx.fillStyle = mainColor.replace('rgb', 'rgba').replace(')', `, ${opacity})`);
         ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
 
         x += barWidth + 1; // Bar width + spacing
@@ -268,7 +259,7 @@ export function DynamicBackground() {
         ref={canvasRef}
         width={window.innerWidth} // Set initial width
         height={150} // Set initial height (can be adjusted)
-        className="absolute bottom-0 left-0 w-full opacity-50" // Positioned at the bottom
+        className="absolute bottom-0 left-0 w-full opacity-75" // Positioned at the bottom, increased opacity
         style={{ height: '150px' }} // Explicit height
       />
 
