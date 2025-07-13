@@ -393,36 +393,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
      // For simplicity, we'll let the existing prefetch logic catch up when the next song change occurs.
   }, [currentQueueIndex]);
 
-  const playFromQueue = useCallback(async (index: number, autoPlay = true) => {
-    if (index < 0 || index >= queue.length) return;
-
-    // Stop both players
-    if(audioRefA.current) audioRefA.current.pause();
-    if(audioRefB.current) audioRefB.current.pause();
-
-    const song = queue[index];
-    const nextSong = queue[(index + 1) % queue.length];
-
-    // Set state for the song to play
-    setCurrentSong(song);
-    setCurrentQueueIndex(index);
-    setCurrentTime(0);
-    setIsPlaying(autoPlay);
-
-    // Load current song into active player and preload next into inactive
-    await preloadSong(song, activePlayerRef);
-    await preloadSong(nextSong, inactivePlayerRef);
-
-    if (autoPlay && activePlayerRef.current) {
-        try {
-            await activePlayerRef.current.play();
-        } catch (e) {
-            console.error("Error playing audio from queue:", e);
-            setIsPlaying(false);
-        }
-    }
-  }, [queue, activePlayerRef, inactivePlayerRef, preloadSong]);
-
 
   // Load user preferences
   useEffect(() => {
