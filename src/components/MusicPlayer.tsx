@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Play, Pause, SkipBack, SkipForward, Volume2, FileText, Heart, Plus, List, Shuffle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,8 +46,16 @@ const MusicPlayer = () => {
     setShowLyricsDialog,
     setShowQueueDialog,
     addSongToPlaylist,
-    playNextInQueue, // Added playNextInQueue
+    playNextInQueue,
   } = useMusicPlayer();
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: songs.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 84, // Estimate of song item height in pixels
+    overscan: 5,
+  });
 
   const [selectedSongForPlaylist, setSelectedSongForPlaylist] = useState<Song | null>(null);
 
@@ -139,305 +148,150 @@ const MusicPlayer = () => {
   }
 
   return (
-    <div className="w-full px-2 sm:px-4 pb-32">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
-          {/* Main Player UI Card */}
-          <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-4 sm:p-6 lg:p-8">
-            <div className="text-center mb-6">
-              <div className="w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 mx-auto mb-6 rounded-lg overflow-hidden shadow-2xl bg-gray-700">
-                <ResolvedCoverImage
-                  imageKey={currentSong.cover_url}
-                  videoId={currentSong.video_id}
-                  altText={currentSong.title || 'Album cover'}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              
-              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 px-2">
-                {currentSong.title || "Unknown Title"}
-              </h2>
-              <p className="text-base sm:text-lg text-gray-300 mb-1 px-2">
-                {currentSong.artist}
-              </p>
-              {currentSong.album && (
-                <p className="text-gray-400 px-2">{currentSong.album}</p>
-              )}
-              {currentSong.year && (
-                <p className="text-gray-500 text-sm">{currentSong.year}</p>
-              )}
-              
-              <p className="text-xs text-gray-500 mt-2">
-                {currentQueueIndex + 1} of {queue.length} in queue
-              </p>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="mb-6">
-              <Slider
-                value={[currentTime]}
-                max={duration || 100}
-                step={1}
-                onValueChange={handleSeek}
-                className="w-full"
-                disabled={!currentSong || duration === 0}
-              />
-              <div className="flex justify-between text-sm text-gray-400 mt-2">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-3 sm:gap-4 mb-6">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={playPrevious}
-                className="text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12"
-                disabled={!currentSong}
-              >
-                <SkipBack className="h-5 w-5 sm:h-6 sm:w-6" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={togglePlay}
-                className="text-white hover:bg-white/20 w-14 h-14 sm:w-16 sm:h-16"
-                disabled={!currentSong}
-              >
-                {isPlaying ? (
-                  <Pause className="h-7 w-7 sm:h-8 sm:w-8" />
-                ) : (
-                  <Play className="h-7 w-7 sm:h-8 sm:w-8" />
-                )}
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={playNext}
-                className="text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12"
-                disabled={!currentSong}
-              >
-                <SkipForward className="h-5 w-5 sm:h-6 sm:w-6" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLikeClick}
-                className={cn(
-                  "text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12",
-                  isCurrentSongLiked && "text-red-500"
-                )}
-                disabled={!currentSong}
-              >
-                <Heart className={cn("h-5 w-5 sm:h-6 sm:w-6", isCurrentSongLiked && "fill-current")} />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowQueueDialog(true)}
-                className="text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12"
-                disabled={!currentSong}
-              >
-                <List className="h-5 w-5 sm:h-6 sm:w-6" />
-              </Button>
-
-              <Dialog open={showLyricsDialog} onOpenChange={setShowLyricsDialog}>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:bg-white/20 w-10 h-10 sm:w-12 sm:h-12"
-                    disabled={!currentSong}
-                  >
-                    <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-gray-800 text-white border-gray-700">
-                  <DialogHeader>
-                    <DialogTitle>{currentSong.title} - Lyrics</DialogTitle>
-                  </DialogHeader>
-                  <div className="py-4 text-sm leading-relaxed" style={{ minHeight: '200px', maxHeight: '60vh', overflowY: 'auto' }}>
-                    {lyrics && lyrics.trim() ? (
-                      <Lrc
-                        lrc={lyrics}
-                        currentMillisecond={currentTime * 1000}
-                        lineRenderer={({ index, active, line }) => (
-                          <p
-                            key={index}
-                            className={cn(
-                              "transition-all duration-300 ease-in-out",
-                              active ? "text-yellow-400 font-semibold scale-105" : "text-gray-300 opacity-70",
-                              "my-3 p-1 rounded" // Added my-3 for more vertical spacing
-                            )}
-                          >
-                            {line.content}
-                          </p>
-                        )}
-                        verticalSpace={true} // Makes active line stay in middle
-                        onLineUpdate={({index, line}) => {
-                          // console.log('Current lyric line:', index, line?.content);
-                        }}
-                      />
-                    ) : (
-                      <p className="text-gray-400">Lyrics not available or loading...</p>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {/* Volume Control */}
-            <div className="flex items-center gap-3">
-              <Volume2 className="h-5 w-5 text-white" />
-              <Slider
-                value={[volume]}
-                max={100}
-                step={1}
-                onValueChange={handleVolumeChange}
-                className="flex-1"
-                disabled={!currentSong}
-              />
-              <span className="text-white text-sm w-12">{Math.round(volume)}%</span>
-            </div>
-          </Card>
-
-          {/* Song List */}
-          <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-4 sm:p-6">
+    <div className="w-full px-2 sm:px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Song List - Now takes up the main view */}
+        <Card className="bg-black/30 border-white/20 backdrop-blur-sm p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-              <h3 className="text-lg sm:text-xl font-bold text-white">
+            <h3 className="text-lg sm:text-xl font-bold text-white">
                 Your Library ({songs.length} songs)
-              </h3>
-              <Button
+            </h3>
+            <Button
                 variant="ghost"
                 size="sm"
                 onClick={handlePlayAllSongs}
                 className="text-green-400 hover:text-green-300 hover:bg-green-400/10 self-start sm:self-auto"
-              >
+            >
                 <Shuffle className="w-4 h-4 mr-2" />
                 Play All
-              </Button>
+            </Button>
             </div>
             
-            <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-              {songs.map((song, index) => (
-                <div
-                  key={song.id}
-                  className={`p-3 rounded-lg transition-all duration-200 hover:bg-white/10 group ${
-                    currentSong?.id === song.id ? 'bg-white/20' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-10 h-10 sm:w-12 sm:h-12 rounded overflow-hidden flex-shrink-0 bg-gray-700 cursor-pointer"
-                      onClick={() => selectSong(song)}
+            <div ref={parentRef} className="max-h-[75vh] overflow-y-auto list-container">
+            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+                {rowVirtualizer.getVirtualItems().map(virtualItem => {
+                const song = songs[virtualItem.index];
+                return (
+                    <div
+                    key={song.id}
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: `${virtualItem.size}px`,
+                        transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                    className={`p-3 rounded-lg transition-all duration-200 hover:bg-white/10 group ${
+                        currentSong?.id === song.id ? 'bg-white/20' : ''
+                    }`}
                     >
-                      <ResolvedCoverImage
-                        imageKey={song.cover_url}
-                        videoId={song.video_id}
-                        altText={song.title || 'Song cover'}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => selectSong(song)}>
-                      <p className={`font-medium truncate text-sm sm:text-base ${
-                        currentSong?.id === song.id ? 'text-green-500' : 'text-white'
-                      }`}>
-                        {song.title || "Unknown Title"}
-                      </p>
-                      <p className="text-gray-400 text-xs sm:text-sm truncate">
-                        {song.artist}
-                      </p>
-                      {song.album && (
-                        <p className="text-gray-500 text-xs truncate hidden sm:block">
-                          {song.album}
+                    <div className="flex items-center gap-3">
+                        <div
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded overflow-hidden flex-shrink-0 bg-gray-700 cursor-pointer"
+                        onClick={() => selectSong(song)}
+                        >
+                        <ResolvedCoverImage
+                            imageKey={song.cover_url}
+                            videoId={song.video_id}
+                            altText={song.title || 'Song cover'}
+                            className="w-full h-full object-cover"
+                        />
+                        </div>
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => selectSong(song)}>
+                        <p className={`font-medium truncate text-sm sm:text-base ${
+                            currentSong?.id === song.id ? 'text-green-500' : 'text-white'
+                        }`}>
+                            {song.title || "Unknown Title"}
                         </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 sm:gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <DownloadButton song={song} className="w-7 h-7 sm:w-8 sm:h-8" />
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToQueue(song);
-                        }}
-                        className="text-blue-400 hover:bg-blue-400/20 w-7 h-7 sm:w-8 sm:h-8"
-                        title="Add to queue"
-                      >
-                        <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                      </Button>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
+                        <p className="text-gray-400 text-xs sm:text-sm truncate">
+                            {song.artist}
+                        </p>
+                        {song.album && (
+                            <p className="text-gray-500 text-xs truncate hidden sm:block">
+                            {song.album}
+                            </p>
+                        )}
+                        </div>
+                        <div className="flex items-center gap-1 sm:gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DownloadButton song={song} className="w-7 h-7 sm:w-8 sm:h-8" />
+
+                        <Button
                             variant="ghost"
                             size="icon"
-                            className="text-white hover:bg-white/20 w-7 h-7 sm:w-8 sm:h-8"
                             onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedSongForPlaylist(song);
+                            e.stopPropagation();
+                            handleAddToQueue(song);
                             }}
-                          >
-                            <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-gray-800 border-gray-700 text-white">
-                          <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); playNextInQueue(song); }}
-                            className="hover:bg-gray-700 cursor-pointer"
-                          >
-                            Play Next
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); handleAddToQueue(song); }}
-                            className="hover:bg-gray-700 cursor-pointer"
-                          >
-                            Add to Queue
-                          </DropdownMenuItem>
-                          {playlists.length > 0 && <DropdownMenuItem disabled className="border-t border-gray-700 my-1 h-px p-0" />}
-                          {playlists.length > 0 ? (
-                            playlists.map((playlist) => (
-                              <DropdownMenuItem
-                                key={playlist.id}
-                                onClick={() => handleAddSongToPlaylist(playlist.id, song)}
+                            className="text-blue-400 hover:bg-blue-400/20 w-7 h-7 sm:w-8 sm:h-8"
+                            title="Add to queue"
+                        >
+                            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                        </Button>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-white hover:bg-white/20 w-7 h-7 sm:w-8 sm:h-8"
+                                onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedSongForPlaylist(song);
+                                }}
+                            >
+                                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="bg-gray-800 border-gray-700 text-white">
+                            <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); playNextInQueue(song); }}
                                 className="hover:bg-gray-700 cursor-pointer"
-                              >
-                                Add to: {playlist.name}
-                              </DropdownMenuItem>
-                            ))
-                          ) : (
-                            <DropdownMenuItem disabled className="text-gray-500 italic">
-                              No playlists to add to
+                            >
+                                Play Next
                             </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      
-                      <div className="text-right hidden lg:block">
-                        {song.year && (
-                          <span className="text-gray-400 text-sm">{song.year}</span>
-                        )}
-                        {song.genre && (
-                          <p className="text-gray-500 text-xs">{song.genre}</p>
-                        )}
-                      </div>
+                            <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); handleAddToQueue(song); }}
+                                className="hover:bg-gray-700 cursor-pointer"
+                            >
+                                Add to Queue
+                            </DropdownMenuItem>
+                            {playlists.length > 0 && <DropdownMenuItem disabled className="border-t border-gray-700 my-1 h-px p-0" />}
+                            {playlists.length > 0 ? (
+                                playlists.map((playlist) => (
+                                <DropdownMenuItem
+                                    key={playlist.id}
+                                    onClick={() => handleAddSongToPlaylist(playlist.id, song)}
+                                    className="hover:bg-gray-700 cursor-pointer"
+                                >
+                                    Add to: {playlist.name}
+                                </DropdownMenuItem>
+                                ))
+                            ) : (
+                                <DropdownMenuItem disabled className="text-gray-500 italic">
+                                No playlists to add to
+                                </DropdownMenuItem>
+                            )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <div className="text-right hidden lg:block">
+                            {song.year && (
+                            <span className="text-gray-400 text-sm">{song.year}</span>
+                            )}
+                            {song.genre && (
+                            <p className="text-gray-500 text-xs">{song.genre}</p>
+                            )}
+                        </div>
+                        </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                    </div>
+                );
+                })}
             </div>
-          </Card>
-        </div>
+            </div>
+        </Card>
       </div>
-      
       <QueueDialog />
     </div>
   );

@@ -20,6 +20,7 @@ import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
 import PlaylistDetailPage from "./pages/PlaylistDetailPage"; // Added import
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
+import { NowPlayingBar } from "./components/NowPlayingBar";
 import { BottomNavbar } from "./components/BottomNavbar";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { DynamicBackground } from "./components/DynamicBackground";
@@ -41,6 +42,7 @@ const ConditionalBottomNavigation = () => {
   if (!isSignedIn) return null;
   return (
     <>
+      <NowPlayingBar />
       <BottomNavbar />
       <BottomNavigation />
     </>
@@ -54,7 +56,7 @@ const AppContent = () => {
   return (
     <div className="min-h-screen relative">
       <DynamicBackground />
-      <div className="relative z-10 pb-32"> {/* Added bottom padding for sticky nav */}
+      <div className="relative z-10 pb-40"> {/* Increased bottom padding for both bars */}
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />

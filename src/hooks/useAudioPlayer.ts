@@ -1,25 +1,25 @@
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 
 export function useAudioPlayer(
-  currentTime: number,
   setCurrentTime: (time: number) => void,
   setDuration: (duration: number) => void,
-  setIsPlaying: (playing: boolean) => void,
-  playNext: () => void
+  onEnded: () => void
 ) {
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioRefA = useRef<HTMLAudioElement>(null);
+  const audioRefB = useRef<HTMLAudioElement>(null);
+  const [activePlayer, setActivePlayer] = useState<'A' | 'B'>('A');
 
-  // Audio event listeners
+  const refs = { A: audioRefA, B: audioRefB };
+
   useEffect(() => {
-    const audio = audioRef.current;
+    const audio = refs[activePlayer].current;
     if (!audio) return;
 
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration);
     const handleEnded = () => {
-      setIsPlaying(false);
-      playNext();
+      onEnded();
     };
     const handleCanPlay = () => setDuration(audio.duration);
 
@@ -28,9 +28,14 @@ export function useAudioPlayer(
     audio.addEventListener('canplay', handleCanPlay);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('error', (e) => {
-      console.error("Audio Element Error:", e);
-      setIsPlaying(false);
+      console.error(`Audio Element Error on player ${activePlayer}:`, e);
     });
+
+    // We also need to listen to the inactive player for when it's ready to play
+    const inactivePlayer = refs[activePlayer === 'A' ? 'B' : 'A'].current;
+    if (inactivePlayer) {
+      // Optional: handle canplay for inactive player to know when it's buffered
+    }
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime);
@@ -39,24 +44,28 @@ export function useAudioPlayer(
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', (e) => console.error("Audio Element Error (removed):", e));
     };
-  }, [setCurrentTime, setDuration, setIsPlaying, playNext]);
+  }, [activePlayer, setCurrentTime, setDuration, onEnded]);
 
   const seek = useCallback((time: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
+    const audio = refs[activePlayer].current;
+    if (audio) {
+      audio.currentTime = time;
       setCurrentTime(time);
     }
-  }, [setCurrentTime]);
+  }, [activePlayer, setCurrentTime]);
 
   const setVolume = useCallback((volume: number) => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-    }
+    if (audioRefA.current) audioRefA.current.volume = volume;
+    if (audioRefB.current) audioRefB.current.volume = volume;
   }, []);
 
   return {
-    audioRef,
+    audioRefA,
+    audioRefB,
+    activePlayerRef: refs[activePlayer],
+    inactivePlayerRef: refs[activePlayer === 'A' ? 'B' : 'A'],
+    setActivePlayer,
     seek,
-    setVolume
+    setVolume,
   };
 }

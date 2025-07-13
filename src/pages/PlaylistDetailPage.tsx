@@ -149,7 +149,7 @@ const PlaylistDetailPage = () => {
   const songsToDisplay = playlistSongs.map(ps => ps.songs).filter(Boolean) as Song[];
 
   return (
-    <div className="min-h-screen charcoal-bg wave-bg pb-32 pt-10 sm:pt-16">
+    <div className="min-h-screen charcoal-bg wave-bg pb-20 pt-10 sm:pt-16">
       <div className="container mx-auto p-4 text-white">
         <div className="mb-8 relative">
           <Button asChild variant="ghost" className="absolute top-0 left-0 text-gray-300 hover:text-yellow-400">
