@@ -34,40 +34,49 @@ const PlaylistDetailPage = () => {
   // Removed: const [playlistDetails, setPlaylistDetails] = useState<Playlist | null>(null);
 
   const { data, isLoading, error } = useQuery<PlaylistPageData>({
-    queryKey: ['playlistPageData', playlistId, user?.id],
+    queryKey: ['playlistPageData', playlistId, user?.id], // Changed queryKey to reflect combined data
     queryFn: async () => {
-      // At this point, `playlistId`, `user`, and `supabase` are guaranteed to be defined
-      // because of the `enabled` option below.
+      if (!playlistId || !user || !supabase) {
+        // Ensure a consistent return type even if conditions aren't met
+        return { playlistDetails: null, playlistSongs: [] };
+      }
+
       const [playlistDetailsResult, playlistSongsResult] = await Promise.all([
-        supabase!
+        supabase
           .from('playlists')
           .select('*')
-          .eq('id', playlistId!)
-          .eq('user_id', user!.id)
+          .eq('id', playlistId)
+          .eq('user_id', user.id)
           .single(),
-        supabase!
+        supabase
           .from('playlist_songs')
-          .select('*, songs (*)')
-          .eq('playlist_id', playlistId!)
+          .select(`
+            *,
+            songs (*)
+          `)
+          .eq('playlist_id', playlistId)
           .order('song_order', { ascending: true })
       ]);
 
       const { data: playlistData, error: playlistError } = playlistDetailsResult;
-      if (playlistError) {
-        console.error('Error fetching playlist details:', playlistError.message);
-        // Throwing an error here will put the query in an 'error' state
-        throw new Error('Playlist not found or access denied.');
+      if (playlistError || !playlistData) {
+        // Log the error but allow the component to handle the null playlistDetails
+        console.error('Error fetching playlist details:', playlistError?.message);
+        // Depending on requirements, you might throw new Error('Playlist not found or access denied.');
+        // For now, returning null allows the component to render a "not found" state.
       }
 
       const { data: songsData, error: songsError } = playlistSongsResult;
       if (songsError) {
         console.error('Error fetching songs for playlist:', songsError);
-        throw new Error('Could not fetch songs for the playlist.');
+        // Rethrow or handle as appropriate. For now, let's return empty songs on error.
+        // throw songsError; // Or handle more gracefully
+        return { playlistDetails: playlistData || null, playlistSongs: [] };
       }
 
       const filteredSongs = (songsData || []).filter(item => item.songs !== null) as PlaylistSongEntry[];
 
-      return { playlistDetails: playlistData, playlistSongs: filteredSongs };
+      return { playlistDetails: playlistData || null, playlistSongs: filteredSongs };
     },
     enabled: !!playlistId && !!user && !!supabase,
   });
