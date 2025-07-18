@@ -37,26 +37,15 @@ const queryClient = new QueryClient({
   },
 });
 
-const ConditionalBottomNavigation = () => {
-  const { isSignedIn } = useUser();
-  if (!isSignedIn) return null;
-  return (
-    <>
-      <BottomNavbar />
-      <BottomNavigation />
-    </>
-  );
-};
-
 const AppContent = () => {
-  // Enable keyboard shortcuts
+  const { isSignedIn } = useUser();
   useKeyboardShortcuts();
-  
+
   return (
     <div className="min-h-screen relative">
       <DynamicBackground />
       <TopNavbar />
-      <div className="relative z-10 pt-24 pb-40"> {/* Added top padding for new navbar */}
+      <div className="relative z-10 pt-24 pb-40">
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />
@@ -66,17 +55,22 @@ const AppContent = () => {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/liked" element={<LikedSongsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/playlist/:playlistId" element={<PlaylistDetailPage />} /> {/* Added route */}
+            <Route path="/playlist/:playlistId" element={<PlaylistDetailPage />} />
           </Route>
 
           <Route path="/search" element={<SearchPage />} />
-          <Route path="/terms" element={<div className="p-8 text-white">Terms and Conditions Page (Placeholder)</div>} />
-          <Route path="/privacy" element={<div className="p-8 text-white">Privacy Policy Page (Placeholder)</div>} />
+          <Route path="/terms" element={<div className="p-8 text-white">Terms and Conditions Page</div>} />
+          <Route path="/privacy" element={<div className="p-8 text-white">Privacy Policy Page</div>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
-      <ConditionalBottomNavigation />
+      {isSignedIn && (
+        <>
+          <BottomNavbar />
+          <BottomNavigation />
+        </>
+      )}
     </div>
   );
 };
