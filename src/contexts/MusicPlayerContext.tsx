@@ -87,9 +87,44 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Use playlist operations hook
   const playlistOps = usePlaylistOperations();
 
-  // Forward-declare functions that will be defined inside a useCallback but are needed for dependency arrays
-  const playFromQueueRef = useRef<(index: number, autoPlay?: boolean) => Promise<void>>();
-  const playNextRef = useRef<(autoPlay?: boolean) => void>();
+  // Define playback functions before they are used in hooks
+  const preloadSong = useCallback(async (song: Song | null, playerRef: React.RefObject<HTMLAudioElement>) => {
+    if (!song || !playerRef.current) return;
+    const audioFileKey = song.storage_path || song.file_url;
+    if (!audioFileKey) return;
+    console.log(`[Gapless] Preloading ${song.title}`);
+    let audioSrc = audioBlobCache.get(song.id) ? URL.createObjectURL(audioBlobCache.get(song.id)!) : null;
+    if (!audioSrc) {
+        audioSrc = await resolveMediaUrlWithSession(audioFileKey, true, 'high');
+    }
+    if (audioSrc) {
+        playerRef.current.src = audioSrc;
+        playerRef.current.load();
+    }
+  }, [resolveMediaUrlWithSession]);
+
+  const playFromQueue = useCallback(async (index: number, autoPlay = true) => {
+    if (index < 0 || index >= queue.length) return;
+    const song = queue[index];
+    const nextSong = queue[(index + 1) % queue.length];
+    setCurrentSong(song);
+    setCurrentQueueIndex(index);
+    setCurrentTime(0);
+    setIsPlaying(autoPlay);
+    // Use the activePlayerRef from the useAudioPlayer hook below
+  }, [queue]);
+
+  const playNext = useCallback((autoPlay = false) => {
+    if (queue.length === 0) return;
+    const nextIndex = (currentQueueIndex + 1) % queue.length;
+    if (playFromQueue) playFromQueue(nextIndex, autoPlay);
+  }, [queue, currentQueueIndex, playFromQueue]);
+
+  const playPrevious = useCallback(() => {
+    if (queue.length === 0) return;
+    const prevIndex = (currentQueueIndex - 1 + queue.length) % queue.length;
+    if (playFromQueue) playFromQueue(prevIndex, true);
+  }, [queue, currentQueueIndex, playFromQueue]);
 
   // Use audio player hook
   const {
@@ -103,90 +138,31 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   } = useAudioPlayer(
     setCurrentTime,
     setDuration,
-    () => { if (playNextRef.current) playNextRef.current(true) } // onEnded callback, autoPlay=true
+    () => playNext(true) // onEnded callback
   );
 
-  const preloadSong = useCallback(async (song: Song | null, playerRef: React.RefObject<HTMLAudioElement>) => {
-    if (!song || !playerRef.current) return;
-    const audioFileKey = song.storage_path || song.file_url;
-    if (!audioFileKey) return;
+  // useEffect to load and play audio, now that all functions are defined.
+  useEffect(() => {
+    const loadAndPlay = async () => {
+        if (!currentSong) return;
+        if(audioRefA.current) audioRefA.current.pause();
+        if(audioRefB.current) audioRefB.current.pause();
 
-    console.log(`[Gapless] Preloading ${song.title}`);
-    let audioSrc = audioBlobCache.get(song.id) ? URL.createObjectURL(audioBlobCache.get(song.id)!) : null;
-    if (!audioSrc) {
-        audioSrc = await resolveMediaUrlWithSession(audioFileKey, true, 'high');
-    }
+        await preloadSong(currentSong, activePlayerRef);
+        const nextSong = queue[(currentQueueIndex + 1) % queue.length];
+        await preloadSong(nextSong, inactivePlayerRef);
 
-    if (audioSrc) {
-        playerRef.current.src = audioSrc;
-        playerRef.current.load();
-    }
-  }, [resolveMediaUrlWithSession]);
-
-  const playNext = useCallback((autoPlay = false) => {
-    if (queue.length === 0) return;
-
-    if(activePlayerRef.current) activePlayerRef.current.pause();
-
-    const nextIndex = (currentQueueIndex + 1) % queue.length;
-    const nextSong = queue[nextIndex];
-
-    setCurrentQueueIndex(nextIndex);
-    setCurrentSong(nextSong);
-    setCurrentTime(0);
-
-    const newActivePlayerKey = activePlayerRef.current === audioRefA.current ? 'B' : 'A';
-    setActivePlayer(newActivePlayerKey);
-    const playerToPlay = newActivePlayerKey === 'A' ? audioRefA.current : audioRefB.current;
-
-    if (autoPlay && playerToPlay) {
-      playerToPlay.play().then(() => setIsPlaying(true)).catch(e => console.error("Error playing next track:", e));
-    } else {
-      setIsPlaying(false);
-    }
-
-    const nextNextIndex = (nextIndex + 1) % queue.length;
-    const playerToPreload = newActivePlayerKey === 'A' ? audioRefB.current : audioRefA.current;
-    preloadSong(queue[nextNextIndex], { current: playerToPreload });
-
-  }, [queue, currentQueueIndex, activePlayerRef, audioRefA, audioRefB, setActivePlayer, preloadSong]);
-  playNextRef.current = playNext;
-
-  const playFromQueue = useCallback(async (index: number, autoPlay = true) => {
-    if (index < 0 || index >= queue.length) return;
-
-    if(audioRefA.current) audioRefA.current.pause();
-    if(audioRefB.current) audioRefB.current.pause();
-
-    const song = queue[index];
-    const nextSong = queue[(index + 1) % queue.length];
-
-    setCurrentSong(song);
-    setCurrentQueueIndex(index);
-    setCurrentTime(0);
-    setIsPlaying(autoPlay);
-
-    await preloadSong(song, activePlayerRef);
-    await preloadSong(nextSong, inactivePlayerRef);
-
-    if (autoPlay && activePlayerRef.current) {
-        try {
-            await activePlayerRef.current.play();
-        } catch (e) {
-            console.error("Error playing audio from queue:", e);
-            setIsPlaying(false);
+        if (isPlaying && activePlayerRef.current) {
+            try {
+                await activePlayerRef.current.play();
+            } catch (e) {
+                console.error("Error playing audio:", e);
+                setIsPlaying(false);
+            }
         }
-    }
-  }, [queue, activePlayerRef, inactivePlayerRef, preloadSong, audioRefA, audioRefB]);
-  playFromQueueRef.current = playFromQueue;
-
-  const playPrevious = useCallback(() => {
-     if (queue.length === 0) return;
-    const prevIndex = (currentQueueIndex - 1 + queue.length) % queue.length;
-    if (playFromQueueRef.current) {
-      playFromQueueRef.current(prevIndex, true);
-    }
-  }, [queue, currentQueueIndex]);
+    };
+    loadAndPlay();
+  }, [currentSong, isPlaying, activePlayerRef, inactivePlayerRef, preloadSong, queue, currentQueueIndex]);
 
   // Fetch songs with mobile-optimized caching
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
