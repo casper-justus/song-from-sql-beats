@@ -280,19 +280,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
-  // Mobile-optimized queue management with aggressive prefetching
-  const setQueue = useCallback((newQueue: Song[], startIndex: number = 0) => {
-    setQueueState(newQueue);
-    setCurrentQueueIndex(startIndex);
-    if (newQueue.length > 0) {
-      setCurrentSong(newQueue[startIndex]);
-      // Start immediate prefetching for mobile
-      setTimeout(() => {
-        startBackgroundPrefetch(newQueue, resolveMediaUrlWithSession, startIndex);
-      }, 100);
-    }
-  }, [resolveMediaUrlWithSession]);
-
   const addToQueue = useCallback((song: Song) => {
     setQueueState(prev => [...prev, song]);
     // Prefetch the newly added song
