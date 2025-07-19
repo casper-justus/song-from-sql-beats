@@ -43,7 +43,7 @@ const AppContent = () => {
     <div className="min-h-screen relative">
       <DynamicBackground />
       <TopNavbar />
-      <div className="relative z-10 pt-24 pb-40">
+      <div className="relative z-10 pt-24 pb-40 fade-in">
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />

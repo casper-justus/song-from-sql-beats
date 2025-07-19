@@ -10,6 +10,19 @@ import { useToast } from '@/components/ui/use-toast';
 // Example: Spotify-like green color
 const spotifyGreen = "#1DB954";
 
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { updateUserPassword } from '@/lib/auth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"; // Removed CardDescription
+import { useToast } from '@/components/ui/use-toast';
+import { DynamicBackground } from '@/components/DynamicBackground';
+
+// Example: Spotify-like green color
+const spotifyGreen = "#1DB954";
+
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -80,12 +93,13 @@ export default function UpdatePasswordPage() {
 
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6" style={{ backgroundColor: '#121212' }}>
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6">
+      <DynamicBackground />
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold text-white">Your App Name</h1>
       </div>
 
-      <Card className="w-full max-w-md bg-[#282828] border-none shadow-2xl rounded-xl">
+      <Card className="w-full max-w-md bg-gray-800/50 border-gray-700 shadow-2xl rounded-xl">
         <CardHeader className="text-center pt-8 pb-4">
           <CardTitle className="text-2xl sm:text-3xl font-bold text-white">Set new password</CardTitle>
         </CardHeader>

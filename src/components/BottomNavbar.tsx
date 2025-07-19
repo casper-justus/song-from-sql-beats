@@ -26,18 +26,36 @@ export function BottomNavbar() {
 
   // Generate dynamic colors based on song info
   useEffect(() => {
-    if (currentSong) {
-      const generateColorFromText = (text: string): string => {
-        let hash = 0;
-        for (let i = 0; i < text.length; i++) {
-          hash = text.charCodeAt(i) + ((hash << 5) - hash);
+    if (currentSong?.cover_url) {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = currentSong.cover_url;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        if (context) {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          context.drawImage(img, 0, 0);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          let r = 0, g = 0, b = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+          }
+          r = Math.floor(r / (data.length / 4));
+          g = Math.floor(g / (data.length / 4));
+          b = Math.floor(b / (data.length / 4));
+          setDominantColor(`rgb(${r}, ${g}, ${b})`);
         }
-        const hue = Math.abs(hash) % 360;
-        return `hsl(${hue}, 70%, 55%)`;
       };
+
 
       const newColor = generateColorFromText(currentSong.title + (currentSong.artist || ''));
       setDominantColor(newColor);
+
     }
   }, [currentSong]);
 
