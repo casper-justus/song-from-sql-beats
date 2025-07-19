@@ -140,7 +140,7 @@ export function BottomNavbar() {
         <canvas
             ref={canvasRef}
             width={window.innerWidth}
-            height={500} // h-24
+            height={150} // h-24
             className="absolute top-0 left-0 w-full -translate-y-full opacity-75"
         />
       {/* Progress Bar at the top */}
