@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Heart, List } from 'lucide-react';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
@@ -78,10 +77,6 @@ export function BottomNavbar() {
     }
   }, [isPlaying, activePlayerRef, currentSong]);
 
-  if (!currentSong) {
-    return null;
-  }
-
   useEffect(() => {
     const drawVisualizer = () => {
       if (!analyserRef.current || !canvasRef.current || !dataArrayRef.current) {
@@ -120,6 +115,10 @@ export function BottomNavbar() {
       }
     };
   }, [isPlaying, dominantColor]);
+
+  if (!currentSong) {
+    return null;
+  }
 
   return (
     <div
