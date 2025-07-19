@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Heart, List } from 'lucide-react';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
@@ -52,6 +51,11 @@ export function BottomNavbar() {
           setDominantColor(`rgb(${r}, ${g}, ${b})`);
         }
       };
+
+
+      const newColor = generateColorFromText(currentSong.title + (currentSong.artist || ''));
+      setDominantColor(newColor);
+
     }
   }, [currentSong]);
 
@@ -90,10 +94,6 @@ export function BottomNavbar() {
         }
     }
   }, [isPlaying, activePlayerRef, currentSong]);
-
-  if (!currentSong) {
-    return null;
-  }
 
   useEffect(() => {
     const drawVisualizer = () => {
@@ -134,6 +134,10 @@ export function BottomNavbar() {
     };
   }, [isPlaying, dominantColor]);
 
+  if (!currentSong) {
+    return null;
+  }
+
   return (
     <div
       className="fixed bottom-0 left-0 right-0 h-24 bg-black/10 backdrop-blur-xl border-t border-white/10 flex items-center justify-between px-4 z-50"
@@ -172,19 +176,19 @@ export function BottomNavbar() {
 
       {/* Controls */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={playPrevious} 
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={playPrevious}
           className="text-white/80 hover:bg-white/20 rounded-full w-10 h-10"
         >
           <SkipBack className="w-5 h-5" />
         </Button>
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={togglePlay} 
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={togglePlay}
           className="text-white bg-white/20 hover:bg-white/30 rounded-full w-14 h-14"
         >
           {isPlaying ? (
@@ -193,11 +197,11 @@ export function BottomNavbar() {
             <Play className="w-6 h-6" />
           )}
         </Button>
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={playNext} 
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={playNext}
           className="text-white/80 hover:bg-white/20 rounded-full w-10 h-10"
         >
           <SkipForward className="w-5 h-5" />
