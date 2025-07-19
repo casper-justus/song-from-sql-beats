@@ -206,7 +206,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     staleTime: 5 * 60 * 1000,
   });
 
-  // Mobile-optimized queue management with aggressive prefetching
   const setQueue = useCallback((newQueue: Song[], startIndex: number = 0) => {
     setQueueState(newQueue);
     setCurrentQueueIndex(startIndex);
