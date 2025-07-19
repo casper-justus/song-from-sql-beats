@@ -21,7 +21,6 @@ import PlaylistDetailPage from "./pages/PlaylistDetailPage"; // Added import
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
 import { TopNavbar } from "./components/TopNavbar";
 import { BottomNavbar } from "./components/BottomNavbar";
-import { BottomNavigation } from "./components/BottomNavigation";
 import { DynamicBackground } from "./components/DynamicBackground";
 
 const queryClient = new QueryClient({
@@ -67,7 +66,6 @@ const AppContent = () => {
       {isSignedIn && (
         <>
           <BottomNavbar />
-          <BottomNavigation />
         </>
       )}
     </div>
