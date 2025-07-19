@@ -169,6 +169,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     queryKey: ['songs'],
     queryFn: async () => {
       if (!supabase) return [];
+      const localSongs = localStorage.getItem('songs');
+      if (localSongs) {
+        return JSON.parse(localSongs);
+      }
       const { data, error } = await supabase
         .from('songs')
         .select('*')
@@ -177,6 +181,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         console.error("Error fetching songs:", error);
         throw error;
       }
+      localStorage.setItem('songs', JSON.stringify(data || []));
       return data || [];
     },
     enabled: !!user && !!supabase,
