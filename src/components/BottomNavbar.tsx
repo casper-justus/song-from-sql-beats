@@ -76,7 +76,7 @@ export function BottomNavbar() {
             const source = context.createMediaElementSource(activePlayerRef.current);
             const analyser = context.createAnalyser();
 
-            analyser.fftSize = 256;
+            analyser.fftSize = 512;
             source.connect(analyser);
             analyser.connect(context.destination);
 
