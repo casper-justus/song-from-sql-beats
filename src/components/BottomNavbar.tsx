@@ -48,10 +48,6 @@ export function BottomNavbar() {
     }
   };
 
-  if (!currentSong) {
-    return null;
-  }
-
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
