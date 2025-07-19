@@ -14,6 +14,11 @@ export function TopNavbar() {
     { to: "/profile", icon: User, label: "Profile" },
   ];
 
+  const extraNavItems = [
+    { to: "/terms", label: "Terms" },
+    { to: "/privacy", label: "Privacy" },
+  ];
+
   const activeClassName = "bg-white/20 text-white";
   const inactiveClassName = "text-white/60 hover:bg-white/10 hover:text-white";
 
@@ -61,6 +66,20 @@ export function TopNavbar() {
                     )}
                 >
                     <item.icon className="w-5 h-5 mr-2" />
+                    {item.label}
+                </NavLink>
+            ))}
+        </div>
+        <div className="hidden md:flex items-center gap-4 p-2 rounded-full border border-white/10 shadow-lg transition-colors duration-500 ml-4">
+            {extraNavItems.map(item => (
+                <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) => cn(
+                        "px-4 py-2 flex items-center justify-center rounded-full transition-all text-sm font-medium",
+                        isActive ? activeClassName : inactiveClassName
+                    )}
+                >
                     {item.label}
                 </NavLink>
             ))}
