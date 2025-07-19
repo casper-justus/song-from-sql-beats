@@ -78,6 +78,10 @@ export function BottomNavbar() {
     }
   }, [isPlaying, activePlayerRef, currentSong]);
 
+  if (!currentSong) {
+    return null;
+  }
+
   useEffect(() => {
     const drawVisualizer = () => {
       if (!analyserRef.current || !canvasRef.current || !dataArrayRef.current) {

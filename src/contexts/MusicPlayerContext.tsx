@@ -225,7 +225,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
           console.error('Background prefetching failed:', error);
         });
     }
-  }, [fetchedSongs, songsError, resolveMediaUrlWithSession, isInitialized, session]);
+  }, [fetchedSongs, songsError, resolveMediaUrlWithSession, isInitialized, session, setQueue]);
 
   useEffect(() => {
     setPlaylists(fetchedPlaylists);
