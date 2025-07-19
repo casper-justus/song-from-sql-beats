@@ -206,6 +206,19 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     staleTime: 5 * 60 * 1000,
   });
 
+  // Mobile-optimized queue management with aggressive prefetching
+  const setQueue = useCallback((newQueue: Song[], startIndex: number = 0) => {
+    setQueueState(newQueue);
+    setCurrentQueueIndex(startIndex);
+    if (newQueue.length > 0) {
+      setCurrentSong(newQueue[startIndex]);
+      // Start immediate prefetching for mobile
+      setTimeout(() => {
+        startBackgroundPrefetch(newQueue, resolveMediaUrlWithSession, startIndex);
+      }, 100);
+    }
+  }, [resolveMediaUrlWithSession]);
+
   // Initialize with aggressive prefetching
   useEffect(() => {
     if (songsError) console.error("Error in fetchedSongs query:", songsError);
@@ -266,19 +279,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       queryClient.invalidateQueries({ queryKey: ['likedSongs', user?.id] });
     }
   };
-
-  // Mobile-optimized queue management with aggressive prefetching
-  const setQueue = useCallback((newQueue: Song[], startIndex: number = 0) => {
-    setQueueState(newQueue);
-    setCurrentQueueIndex(startIndex);
-    if (newQueue.length > 0) {
-      setCurrentSong(newQueue[startIndex]);
-      // Start immediate prefetching for mobile
-      setTimeout(() => {
-        startBackgroundPrefetch(newQueue, resolveMediaUrlWithSession, startIndex);
-      }, 100);
-    }
-  }, [resolveMediaUrlWithSession]);
 
   const addToQueue = useCallback((song: Song) => {
     setQueueState(prev => [...prev, song]);
