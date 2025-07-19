@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, Mail, Calendar } from 'lucide-react';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { useToast } from '@/hooks/use-toast';
+import { DynamicBackground } from '@/components/DynamicBackground';
 
 export default function ProfilePage() {
   const { user, isLoaded } = useUser();
