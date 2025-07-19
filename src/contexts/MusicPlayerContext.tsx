@@ -77,8 +77,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   // Enhanced URL resolution with mobile optimization
   const resolveMediaUrlWithSession = useCallback(async (
-    fileKey: string, 
-    isAudioFile: boolean = false, 
+    fileKey: string,
+    isAudioFile: boolean = false,
     priority: 'high' | 'normal' = 'normal'
   ): Promise<string | null> => {
     return resolveMediaUrl(fileKey, session, isAudioFile, priority);
@@ -206,7 +206,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     staleTime: 5 * 60 * 1000,
   });
 
-  // Mobile-optimized queue management with aggressive prefetching
   const setQueue = useCallback((newQueue: Song[], startIndex: number = 0) => {
     setQueueState(newQueue);
     setCurrentQueueIndex(startIndex);
@@ -223,11 +222,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => {
     if (songsError) console.error("Error in fetchedSongs query:", songsError);
     setSongs(fetchedSongs);
-    
+
     if (fetchedSongs.length > 0 && !isInitialized && session) {
       setIsInitialized(true);
       setQueue(fetchedSongs, 0);
-      
+
       // Start aggressive background prefetching
       startBackgroundPrefetch(fetchedSongs, resolveMediaUrlWithSession, 0)
         .then(() => {
@@ -293,7 +292,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     setQueueState(prev => {
       const newQueue = [...prev];
       newQueue.splice(index, 1);
-      
+
       if (index < currentQueueIndex) {
         setCurrentQueueIndex(prev => prev - 1);
       } else if (index === currentQueueIndex && newQueue.length > 0) {
@@ -301,7 +300,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         setCurrentQueueIndex(nextIndex);
         setCurrentSong(newQueue[nextIndex]);
       }
-      
+
       return newQueue;
     });
   }, [currentQueueIndex]);
