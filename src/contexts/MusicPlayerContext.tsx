@@ -4,11 +4,17 @@ import { useUser, useSession } from '@clerk/clerk-react';
 import { Database, Tables } from '@/integrations/supabase/types';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { usePlaylistOperations } from '@/hooks/usePlaylistOperations';
-import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useNativeAudio } from '@/hooks/useNativeAudio';
 import { resolveMediaUrl, startBackgroundPrefetch, preloadQueue, fetchLyricsContent, audioBlobCache } from '@/utils/mediaCache'; // Added audioBlobCache
 import { saveUserPreferences, loadUserPreferences } from '@/utils/playerStorage';
+import { isSongDownloaded } from '@/utils/offlinePlayback';
 
-type Song = Tables<'songs'>;
+type Song = Tables<'songs'> & {
+  isDownloaded?: boolean;
+  localPath?: string;
+  streamUrl?: string;
+  artworkUrl?: string;
+};
 type Playlist = Tables<'playlists'>;
 
 interface MusicPlayerContextType {
@@ -63,9 +69,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
   const [likedSongIds, setLikedSongIds] = useState<Set<string>>(new Set());
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.75);
   const [lyrics, setLyrics] = useState('');
   const [showLyricsDialog, setShowLyricsDialog] = useState(false);
@@ -75,94 +78,56 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const queryClient = useQueryClient();
   const currentObjectUrlRef = React.useRef<string | null>(null); // To store and revoke blob URLs
 
+  const {
+    isPlaying,
+    currentTime,
+    duration,
+    play,
+    pause,
+    resume,
+    seek,
+  } = useNativeAudio();
+
   // Enhanced URL resolution with mobile optimization
   const resolveMediaUrlWithSession = useCallback(async (
-    fileKey: string,
+    song: Song,
     isAudioFile: boolean = false,
     priority: 'high' | 'normal' = 'normal'
   ): Promise<string | null> => {
+    const localPath = await isSongDownloaded(song.id);
+    if (localPath) {
+      return localPath;
+    }
+    const fileKey = song.storage_path || song.file_url;
+    if (!fileKey) return null;
     return resolveMediaUrl(fileKey, session, isAudioFile, priority);
   }, [session]);
 
   // Use playlist operations hook
   const playlistOps = usePlaylistOperations();
 
-  // Define playback functions before they are used in hooks
-  const preloadSong = useCallback(async (song: Song | null, playerRef: React.RefObject<HTMLAudioElement>) => {
-    if (!song || !playerRef.current) return;
-    const audioFileKey = song.storage_path || song.file_url;
-    if (!audioFileKey) return;
-    console.log(`[Gapless] Preloading ${song.title}`);
-    let audioSrc = audioBlobCache.get(song.id) ? URL.createObjectURL(audioBlobCache.get(song.id)!) : null;
-    if (!audioSrc) {
-        audioSrc = await resolveMediaUrlWithSession(audioFileKey, true, 'high');
-    }
-    if (audioSrc) {
-        playerRef.current.src = audioSrc;
-        playerRef.current.load();
-    }
-  }, [resolveMediaUrlWithSession]);
-
-  const playFromQueue = useCallback(async (index: number, autoPlay = true) => {
+  const playFromQueue = useCallback(async (index: number) => {
     if (index < 0 || index >= queue.length) return;
     const song = queue[index];
-    const nextSong = queue[(index + 1) % queue.length];
     setCurrentSong(song);
     setCurrentQueueIndex(index);
-    setCurrentTime(0);
-    setIsPlaying(autoPlay);
-    // Use the activePlayerRef from the useAudioPlayer hook below
-  }, [queue]);
+    const streamUrl = await resolveMediaUrlWithSession(song, true, 'high');
+    if (streamUrl) {
+      play({ ...song, streamUrl });
+    }
+  }, [queue, resolveMediaUrlWithSession, play]);
 
-  const playNext = useCallback((autoPlay = false) => {
+  const playNext = useCallback(() => {
     if (queue.length === 0) return;
     const nextIndex = (currentQueueIndex + 1) % queue.length;
-    if (playFromQueue) playFromQueue(nextIndex, autoPlay);
+    playFromQueue(nextIndex);
   }, [queue, currentQueueIndex, playFromQueue]);
 
   const playPrevious = useCallback(() => {
     if (queue.length === 0) return;
     const prevIndex = (currentQueueIndex - 1 + queue.length) % queue.length;
-    if (playFromQueue) playFromQueue(prevIndex, true);
+    playFromQueue(prevIndex);
   }, [queue, currentQueueIndex, playFromQueue]);
-
-  // Use audio player hook
-  const {
-    audioRefA,
-    audioRefB,
-    activePlayerRef,
-    inactivePlayerRef,
-    setActivePlayer,
-    seek,
-    setVolume,
-  } = useAudioPlayer(
-    setCurrentTime,
-    setDuration,
-    () => playNext(true) // onEnded callback
-  );
-
-  // useEffect to load and play audio, now that all functions are defined.
-  useEffect(() => {
-    const loadAndPlay = async () => {
-        if (!currentSong) return;
-        if(audioRefA.current) audioRefA.current.pause();
-        if(audioRefB.current) audioRefB.current.pause();
-
-        await preloadSong(currentSong, activePlayerRef);
-        const nextSong = queue[(currentQueueIndex + 1) % queue.length];
-        await preloadSong(nextSong, inactivePlayerRef);
-
-        if (isPlaying && activePlayerRef.current) {
-            try {
-                await activePlayerRef.current.play();
-            } catch (e) {
-                console.error("Error playing audio:", e);
-                setIsPlaying(false);
-            }
-        }
-    };
-    loadAndPlay();
-  }, [currentSong, isPlaying, activePlayerRef, inactivePlayerRef, preloadSong, queue, currentQueueIndex]);
 
   // Fetch songs with mobile-optimized caching
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
@@ -226,22 +191,37 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Initialize with aggressive prefetching
   useEffect(() => {
     if (songsError) console.error("Error in fetchedSongs query:", songsError);
-    setSongs(fetchedSongs);
 
-    if (fetchedSongs.length > 0 && !isInitialized && session) {
-      setIsInitialized(true);
-      setQueue(fetchedSongs, 0);
-
-      // Start aggressive background prefetching
-      startBackgroundPrefetch(fetchedSongs, resolveMediaUrlWithSession, 0)
-        .then(() => {
-          console.log('Background prefetching completed');
-          setPreloadProgress(100);
+    const checkDownloads = async () => {
+      const songsWithDownloadStatus = await Promise.all(
+        fetchedSongs.map(async (song: Song) => {
+          const localPath = await isSongDownloaded(song.id);
+          return {
+            ...song,
+            isDownloaded: !!localPath,
+            localPath: localPath || undefined,
+          };
         })
-        .catch(error => {
-          console.error('Background prefetching failed:', error);
-        });
-    }
+      );
+      setSongs(songsWithDownloadStatus);
+
+      if (songsWithDownloadStatus.length > 0 && !isInitialized && session) {
+        setIsInitialized(true);
+        setQueue(songsWithDownloadStatus, 0);
+
+        // Start aggressive background prefetching
+        startBackgroundPrefetch(songsWithDownloadStatus, (song) => resolveMediaUrlWithSession(song), 0)
+          .then(() => {
+            console.log('Background prefetching completed');
+            setPreloadProgress(100);
+          })
+          .catch(error => {
+            console.error('Background prefetching failed:', error);
+          });
+      }
+    };
+
+    checkDownloads();
   }, [fetchedSongs, songsError, resolveMediaUrlWithSession, isInitialized, session, setQueue]);
 
   useEffect(() => {
@@ -287,10 +267,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const addToQueue = useCallback((song: Song) => {
     setQueueState(prev => [...prev, song]);
     // Prefetch the newly added song
-    const audioFileKey = song.storage_path || song.file_url;
-    if (audioFileKey) {
-      resolveMediaUrlWithSession(audioFileKey, true, 'normal');
-    }
+    resolveMediaUrlWithSession(song, true, 'normal');
   }, [resolveMediaUrlWithSession]);
 
   const removeFromQueue = useCallback((index: number) => {
@@ -326,27 +303,24 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       console.log(`[MusicPlayerContext] Added "${song.title}" to play next. New queue length: ${newQueue.length}`);
 
       // Aggressively preload this newly inserted "play next" song (URL and Blob)
-      const audioFileKey = song.storage_path || song.file_url;
-      if (audioFileKey) {
-        resolveMediaUrlWithSession(audioFileKey, true, 'high').then(async (url) => {
-          if (url) {
-            preloadQueue.set(song.id, Promise.resolve(url));
-            if (!audioBlobCache.has(song.id)) {
-              console.log(`[MusicPlayerContext] playNextInQueue: Attempting to fully preload blob for ${song.title}`);
-              try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                const blob = await response.blob();
-                audioBlobCache.set(song.id, blob);
-                manageAudioBlobCache(song.id); // Manage cache size
-                console.log(`[MusicPlayerContext] playNextInQueue: Fully preloaded blob for ${song.title}. Blob cache size: ${audioBlobCache.size}`);
-              } catch (blobError) {
-                console.warn(`[MusicPlayerContext] playNextInQueue: Failed to fully preload blob for ${song.title}:`, blobError);
-              }
+      resolveMediaUrlWithSession(song, true, 'high').then(async (url) => {
+        if (url) {
+          preloadQueue.set(song.id, Promise.resolve(url));
+          if (!audioBlobCache.has(song.id)) {
+            console.log(`[MusicPlayerContext] playNextInQueue: Attempting to fully preload blob for ${song.title}`);
+            try {
+              const response = await fetch(url);
+              if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+              const blob = await response.blob();
+              audioBlobCache.set(song.id, blob);
+              manageAudioBlobCache(song.id); // Manage cache size
+              console.log(`[MusicPlayerContext] playNextInQueue: Fully preloaded blob for ${song.title}. Blob cache size: ${audioBlobCache.size}`);
+            } catch (blobError) {
+              console.warn(`[MusicPlayerContext] playNextInQueue: Failed to fully preload blob for ${song.title}:`, blobError);
             }
           }
-        });
-      }
+        }
+      });
       return newQueue;
     });
   }, [currentQueueIndex, resolveMediaUrlWithSession]);
@@ -426,28 +400,18 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [queue, playFromQueue]);
 
   const togglePlay = useCallback(() => {
-    const audio = activePlayerRef.current;
-    if (!audio || !currentSong) return;
-
     if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
+      pause();
     } else {
-      if (audio.src) {
-        audio.play().then(() => setIsPlaying(true)).catch(e => console.error("Error toggling play:", e));
-      } else {
-        // If no src, selectSong should be used first.
-        // Or re-load the current song.
-        playFromQueue(currentQueueIndex);
-      }
+      resume();
     }
-  }, [isPlaying, currentSong, activePlayerRef, playFromQueue, currentQueueIndex]);
+  }, [isPlaying, pause, resume]);
 
   const setVolumeLevel = useCallback((level: number) => {
     const newVolume = level / 100;
     setVolumeState(newVolume);
     saveUserPreferences(newVolume);
-  }, [setVolumeState]);
+  }, []);
 
   return (
     <MusicPlayerContext.Provider value={{
@@ -487,11 +451,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       addSongToPlaylist: playlistOps.addSongToPlaylist,
       removeSongFromPlaylist: playlistOps.removeSongFromPlaylist,
       deletePlaylist: playlistOps.deletePlaylist,
-      activePlayerRef,
     }}>
       {children}
-      <audio ref={audioRefA} preload="auto" crossOrigin="anonymous" />
-      <audio ref={audioRefB} preload="auto" crossOrigin="anonymous" />
     </MusicPlayerContext.Provider>
   );
 };

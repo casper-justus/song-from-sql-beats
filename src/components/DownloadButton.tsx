@@ -1,56 +1,64 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useSession } from '@clerk/clerk-react';
-import { downloadManager } from '@/utils/downloadManager';
+import { downloadSong, deleteDownloadedSong, isSongDownloaded } from '@/utils/offlinePlayback';
 import { Tables } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 
-type Song = Tables<'songs'>;
+type Song = Tables<'songs'> & {
+  isDownloaded?: boolean;
+  localPath?: string;
+  streamUrl?: string;
+};
 
 interface DownloadButtonProps {
   song: Song;
   className?: string;
 }
 
-type DownloadStatus = 'idle' | 'downloading' | 'completed' | 'error';
+type DownloadStatus = 'idle' | 'downloading' | 'completed' | 'error' | 'downloaded';
 
 export function DownloadButton({ song, className }: DownloadButtonProps) {
-  const { session } = useSession();
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle');
   const [progress, setProgress] = useState(0);
 
+  useEffect(() => {
+    const checkStatus = async () => {
+      const localPath = await isSongDownloaded(song.id);
+      if (localPath) {
+        setDownloadStatus('downloaded');
+      }
+    };
+    checkStatus();
+  }, [song.id]);
+
   const handleDownload = async () => {
-    if (!session || downloadStatus === 'downloading') return;
+    if (downloadStatus === 'downloading' || downloadStatus === 'downloaded') return;
 
     setDownloadStatus('downloading');
     setProgress(0);
 
-    // Listen to download progress
-    const removeListener = downloadManager.addListener((downloads) => {
-      const download = downloads.get(song.id);
-      if (download) {
-        setProgress(download.progress);
-        if (download.status === 'completed') {
-          setDownloadStatus('completed');
-          setTimeout(() => setDownloadStatus('idle'), 3000);
-        } else if (download.status === 'error') {
-          setDownloadStatus('error');
-          setTimeout(() => setDownloadStatus('idle'), 3000);
-        }
-      }
-    });
+    const streamUrl = song.storage_path || song.file_url;
+    if (!streamUrl) {
+      setDownloadStatus('error');
+      return;
+    }
 
-    const success = await downloadManager.downloadSong(song, session);
-    
-    if (!success && downloadStatus !== 'completed') {
+    const downloadedPath = await downloadSong({ ...song, streamUrl, isDownloaded: false });
+
+    if (downloadedPath) {
+      setDownloadStatus('completed');
+      setTimeout(() => setDownloadStatus('downloaded'), 2000);
+    } else {
       setDownloadStatus('error');
       setTimeout(() => setDownloadStatus('idle'), 3000);
     }
+  };
 
-    // Clean up listener after a delay
-    setTimeout(() => removeListener(), 5000);
+  const handleDelete = async () => {
+    await deleteDownloadedSong(song.id);
+    setDownloadStatus('idle');
   };
 
   const getIcon = () => {
@@ -58,7 +66,8 @@ export function DownloadButton({ song, className }: DownloadButtonProps) {
       case 'downloading':
         return <Loader2 className="w-4 h-4 animate-spin" />;
       case 'completed':
-        return <CheckCircle className="w-4 h-4" />;
+      case 'downloaded':
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'error':
         return <AlertCircle className="w-4 h-4" />;
       default:
@@ -69,7 +78,8 @@ export function DownloadButton({ song, className }: DownloadButtonProps) {
   const getVariant = () => {
     switch (downloadStatus) {
       case 'completed':
-        return 'default';
+      case 'downloaded':
+        return 'ghost';
       case 'error':
         return 'destructive';
       default:
@@ -77,23 +87,31 @@ export function DownloadButton({ song, className }: DownloadButtonProps) {
     }
   };
 
+  const handleClick = () => {
+    if (downloadStatus === 'downloaded') {
+      handleDelete();
+    } else {
+      handleDownload();
+    }
+  };
+
   return (
     <Button
       variant={getVariant()}
       size="icon"
-      onClick={handleDownload}
+      onClick={handleClick}
       disabled={downloadStatus === 'downloading'}
       className={cn(
         "transition-all duration-200",
-        downloadStatus === 'completed' && "text-green-600 hover:text-green-700",
-        downloadStatus === 'error' && "text-red-600 hover:text-red-700",
         className
       )}
       title={
-        downloadStatus === 'downloading' 
+        downloadStatus === 'downloading'
           ? `Downloading... ${progress}%`
           : downloadStatus === 'completed'
           ? 'Downloaded successfully'
+          : downloadStatus === 'downloaded'
+          ? 'Delete from device'
           : downloadStatus === 'error'
           ? 'Download failed'
           : 'Download song'
