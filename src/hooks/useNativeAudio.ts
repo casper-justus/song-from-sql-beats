@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { AudioPlayerPlugin, AudioPlayerPluginEvents } from '@mediagrid/capacitor-native-audio';
+import { registerPlugin } from '@capacitor/core';
+import type { AudioPlayerPlugin } from '@mediagrid/capacitor-native-audio';
+const AudioPlayerPlugin = registerPlugin<AudioPlayerPlugin>('AudioPlayerPlugin');
 
 const AUDIO_PLAYER_ID = "myMusicPlayer";
 
