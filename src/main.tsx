@@ -3,10 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { ClerkProvider } from '@clerk/clerk-react'
 import App from './App.tsx'
 import './index.css'
-import 'capacitor-native-audio';
-import '@capacitor/core';
-import '@capacitor/filesystem';
-import '@capacitor/file-transfer';
 
 const PUBLISHABLE_KEY = "pk_test_Z3JlYXQta2l0LTYzLmNsZXJrLmFjY291bnRzLmRldiQ"
 
