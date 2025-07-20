@@ -54,7 +54,6 @@ interface MusicPlayerContextType {
   addSongToPlaylist: (playlistId: string, songId: string) => Promise<void>;
   removeSongFromPlaylist: (playlistId: string, songId: string) => Promise<void>;
   deletePlaylist: (playlistId: string) => Promise<void>;
-  activePlayerRef: React.RefObject<HTMLAudioElement>;
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(undefined);
@@ -113,10 +112,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     setCurrentQueueIndex(index);
     const localPath = await isSongDownloaded(song.id);
     const streamUrl = await resolveMediaUrlWithSession(song, true, 'high');
+    const artworkUrl = song.cover_url || '';
     if (localPath) {
-      play({ ...song, localPath, streamUrl: localPath });
+      play({ ...song, id: song.id, localPath, streamUrl: localPath, artworkUrl });
     } else if (streamUrl) {
-      play({ ...song, streamUrl });
+      play({ ...song, id: song.id, streamUrl, artworkUrl });
     }
   }, [queue, resolveMediaUrlWithSession, play]);
 
@@ -403,12 +403,14 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [queue, playFromQueue]);
 
   const togglePlay = useCallback(() => {
-    if (isPlaying) {
-      pause();
-    } else {
-      resume();
+    if (currentSong) {
+      if (isPlaying) {
+        pause(currentSong.id);
+      } else {
+        resume(currentSong.id);
+      }
     }
-  }, [isPlaying, pause, resume]);
+  }, [isPlaying, pause, resume, currentSong]);
 
   const setVolumeLevel = useCallback((level: number) => {
     const newVolume = level / 100;

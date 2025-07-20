@@ -1,81 +1,77 @@
 import { useState, useEffect } from 'react';
-import { registerPlugin } from '@capacitor/core';
-import type { AudioPlayerPlugin } from '@mediagrid/capacitor-native-audio';
-const AudioPlayerPlugin = registerPlugin<AudioPlayerPlugin>('AudioPlayerPlugin');
+import { AudioPlayer } from 'capacitor-native-audio';
 
-const AUDIO_PLAYER_ID = "myMusicPlayer";
+const AUDIO_ID = 'myUniqueAudioId';
 
 export const useNativeAudio = () => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        await AudioPlayerPlugin.initialize({ audioPlayerId: AUDIO_PLAYER_ID, source: "" });
+    const onPlay = AudioPlayer.addListener('onPlay', () => setIsPlaying(true));
+    const onPause = AudioPlayer.addListener('onPause', () => setIsPlaying(false));
+    const onEnded = AudioPlayer.addListener('onEnded', () => setIsPlaying(false));
+    const onError = AudioPlayer.addListener('onError', (error) => console.error('Audio playback error:', error));
 
-        AudioPlayerPlugin.on(AudioPlayerPluginEvents.StateChange, (state) => {
-          setIsPlaying(state.isPlaying);
-        });
-
-        AudioPlayerPlugin.on(AudioPlayerPluginEvents.Progress, (info) => {
-          setCurrentTime(info.currentTime);
-          setDuration(info.duration);
-        });
-      } catch (error) {
-        console.error('Error initializing audio player:', error);
-      }
+    return () => {
+      onPlay.remove();
+      onPause.remove();
+      onEnded.remove();
+      onError.remove();
     };
-    initialize();
   }, []);
 
-  const play = async (song: { localPath?: string; streamUrl: string; album: string; artist: string; title: string; artworkUrl: string; }) => {
+  const play = async (song: { id: string, localPath?: string, streamUrl: string, title: string, artist: string, album: string, artworkUrl: string }) => {
     try {
-      await AudioPlayerPlugin.changeAudioSource({
-        audioPlayerId: AUDIO_PLAYER_ID,
-        source: song.localPath || song.streamUrl,
+      await AudioPlayer.load({
+        id: song.id,
+        assetPath: song.localPath || song.streamUrl,
+        loop: false,
+        volume: 1.0,
+        notification: {
+          title: song.title,
+          artist: song.artist,
+          albumTitle: song.album,
+          albumArt: song.artworkUrl,
+        },
       });
-      await AudioPlayerPlugin.changeMetadata({
-        audioPlayerId: AUDIO_PLAYER_ID,
-        albumTitle: song.album,
-        artistName: song.artist,
-        friendlyTitle: song.title,
-        artworkSource: song.artworkUrl,
-      });
-      await AudioPlayerPlugin.play({ audioPlayerId: AUDIO_PLAYER_ID });
+      await AudioPlayer.play({ id: song.id });
     } catch (error) {
-      console.error(`Error playing song ${song.title}:`, error);
+      console.error('Error playing audio:', error);
     }
   };
 
-  const pause = async () => {
-    await AudioPlayerPlugin.pause({ audioPlayerId: AUDIO_PLAYER_ID });
+  const pause = async (songId: string) => {
+    try {
+      await AudioPlayer.pause({ id: songId });
+    } catch (error) {
+      console.error('Error pausing audio:', error);
+    }
   };
 
-  const resume = async () => {
-    await AudioPlayerPlugin.play({ audioPlayerId: AUDIO_PLAYER_ID });
+  const resume = async (songId: string) => {
+    try {
+      await AudioPlayer.play({ id: songId });
+    } catch (error) {
+      console.error('Error resuming audio:', error);
+    }
   };
 
-  const stop = async () => {
-    await AudioPlayerPlugin.stop({ audioPlayerId: AUDIO_PLAYER_ID });
+  const stop = async (songId: string) => {
+    try {
+      await AudioPlayer.stop({ id: songId });
+      await AudioPlayer.unload({ id: songId });
+    } catch (error) {
+      console.error('Error stopping audio:', error);
+    }
   };
 
-  const seek = async (timeInSeconds: number) => {
-    await AudioPlayerPlugin.seek({
-      audioPlayerId: AUDIO_PLAYER_ID,
-      timeInSeconds: timeInSeconds,
-    });
+  const seek = async (songId: string, time: number) => {
+    // Not directly supported by the plugin, but can be implemented
+    // by stopping and starting at a new position if needed.
+    console.warn('Seek is not implemented in this version of the plugin.');
   };
 
-  return {
-    isPlaying,
-    currentTime,
-    duration,
-    play,
-    pause,
-    resume,
-    stop,
-    seek,
-  };
+  return { isPlaying, duration, currentTime, play, pause, resume, stop, seek };
 };
