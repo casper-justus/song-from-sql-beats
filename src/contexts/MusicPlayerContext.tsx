@@ -113,10 +113,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     const localPath = await isSongDownloaded(song.id);
     const streamUrl = await resolveMediaUrlWithSession(song, true, 'high');
     const artworkUrl = song.cover_url || '';
+    const assetId = song.id;
     if (localPath) {
-      play({ ...song, id: song.id, localPath, streamUrl: localPath, artworkUrl });
+      play({ ...song, assetId, localPath, streamUrl: localPath, artworkUrl });
     } else if (streamUrl) {
-      play({ ...song, id: song.id, streamUrl, artworkUrl });
+      play({ ...song, assetId, streamUrl, artworkUrl });
     }
   }, [queue, resolveMediaUrlWithSession, play]);
 
