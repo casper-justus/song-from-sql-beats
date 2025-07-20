@@ -69,10 +69,6 @@ const MusicPlayer = () => {
     seek(value[0]);
   };
 
-  const handleVolumeChange = (value: number[]) => {
-    setVolumeLevel(value[0]);
-  };
-
   const handleAddSongToPlaylist = async (playlistId: string, song: Song) => {
     await addSongToPlaylist(playlistId, song.id);
     setSelectedSongForPlaylist(null);
@@ -203,15 +199,11 @@ const MusicPlayer = () => {
               </Button>
             </div>
 
-            {/* Volume Control & other actions */}
+            {/* other actions */}
             <div className="flex items-center justify-center gap-4">
                 <Button variant="ghost" size="icon" onClick={handleLikeClick} className={cn("text-white/70 hover:text-white", isCurrentSongLiked && "text-red-500")}>
                     <Heart className={cn("h-5 w-5", isCurrentSongLiked && "fill-current")} />
                 </Button>
-                <div className="flex items-center gap-2 w-full max-w-xs">
-                    <Volume2 className="h-5 w-5 text-white/70" />
-                    <Slider value={[volume]} max={100} onValueChange={handleVolumeChange} />
-                </div>
                 <Button variant="ghost" size="icon" onClick={() => setShowQueueDialog(true)} className="text-white/70 hover:text-white">
                     <List className="h-5 w-5" />
                 </Button>
