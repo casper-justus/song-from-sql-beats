@@ -4,7 +4,7 @@ import { useUser, useSession } from '@clerk/clerk-react';
 import { Database, Tables } from '@/integrations/supabase/types';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { usePlaylistOperations } from '@/hooks/usePlaylistOperations';
-import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useNativeAudio } from '@/hooks/useNativeAudio';
 import { resolveMediaUrl, startBackgroundPrefetch, preloadQueue, fetchLyricsContent, audioBlobCache } from '@/utils/mediaCache'; // Added audioBlobCache
 import { saveUserPreferences, loadUserPreferences } from '@/utils/playerStorage';
 import { isSongDownloaded } from '@/utils/offlinePlayback';
@@ -12,6 +12,8 @@ import { isSongDownloaded } from '@/utils/offlinePlayback';
 type Song = Tables<'songs'> & {
   isDownloaded?: boolean;
   localPath?: string;
+  streamUrl?: string;
+  artworkUrl?: string;
 };
 type Playlist = Tables<'playlists'>;
 
@@ -67,9 +69,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
   const [likedSongIds, setLikedSongIds] = useState<Set<string>>(new Set());
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.75);
   const [lyrics, setLyrics] = useState('');
   const [showLyricsDialog, setShowLyricsDialog] = useState(false);
@@ -78,6 +77,16 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [isInitialized, setIsInitialized] = useState(false);
   const queryClient = useQueryClient();
   const currentObjectUrlRef = React.useRef<string | null>(null); // To store and revoke blob URLs
+
+  const {
+    isPlaying,
+    currentTime,
+    duration,
+    play,
+    pause,
+    resume,
+    seek,
+  } = useNativeAudio();
 
   // Enhanced URL resolution with mobile optimization
   const resolveMediaUrlWithSession = useCallback(async (
@@ -97,80 +106,28 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Use playlist operations hook
   const playlistOps = usePlaylistOperations();
 
-  // Define playback functions before they are used in hooks
-  const preloadSong = useCallback(async (song: Song | null, playerRef: React.RefObject<HTMLAudioElement>) => {
-    if (!song || !playerRef.current) return;
-    console.log(`[Gapless] Preloading ${song.title}`);
-    let audioSrc = audioBlobCache.get(song.id) ? URL.createObjectURL(audioBlobCache.get(song.id)!) : null;
-    if (!audioSrc) {
-        audioSrc = await resolveMediaUrlWithSession(song, true, 'high');
-    }
-    if (audioSrc) {
-        playerRef.current.src = audioSrc;
-        playerRef.current.load();
-    }
-  }, [resolveMediaUrlWithSession]);
-
-  const playFromQueue = useCallback(async (index: number, autoPlay = true) => {
+  const playFromQueue = useCallback(async (index: number) => {
     if (index < 0 || index >= queue.length) return;
     const song = queue[index];
-    const nextSong = queue[(index + 1) % queue.length];
     setCurrentSong(song);
     setCurrentQueueIndex(index);
-    setCurrentTime(0);
-    setIsPlaying(autoPlay);
-    // Use the activePlayerRef from the useAudioPlayer hook below
-  }, [queue]);
+    const streamUrl = await resolveMediaUrlWithSession(song, true, 'high');
+    if (streamUrl) {
+      play({ ...song, streamUrl });
+    }
+  }, [queue, resolveMediaUrlWithSession, play]);
 
-  const playNext = useCallback((autoPlay = false) => {
+  const playNext = useCallback(() => {
     if (queue.length === 0) return;
     const nextIndex = (currentQueueIndex + 1) % queue.length;
-    if (playFromQueue) playFromQueue(nextIndex, autoPlay);
+    playFromQueue(nextIndex);
   }, [queue, currentQueueIndex, playFromQueue]);
 
   const playPrevious = useCallback(() => {
     if (queue.length === 0) return;
     const prevIndex = (currentQueueIndex - 1 + queue.length) % queue.length;
-    if (playFromQueue) playFromQueue(prevIndex, true);
+    playFromQueue(prevIndex);
   }, [queue, currentQueueIndex, playFromQueue]);
-
-  // Use audio player hook
-  const {
-    audioRefA,
-    audioRefB,
-    activePlayerRef,
-    inactivePlayerRef,
-    setActivePlayer,
-    seek,
-    setVolume,
-  } = useAudioPlayer(
-    setCurrentTime,
-    setDuration,
-    () => playNext(true) // onEnded callback
-  );
-
-  // useEffect to load and play audio, now that all functions are defined.
-  useEffect(() => {
-    const loadAndPlay = async () => {
-        if (!currentSong) return;
-        if(audioRefA.current) audioRefA.current.pause();
-        if(audioRefB.current) audioRefB.current.pause();
-
-        await preloadSong(currentSong, activePlayerRef);
-        const nextSong = queue[(currentQueueIndex + 1) % queue.length];
-        await preloadSong(nextSong, inactivePlayerRef);
-
-        if (isPlaying && activePlayerRef.current) {
-            try {
-                await activePlayerRef.current.play();
-            } catch (e) {
-                console.error("Error playing audio:", e);
-                setIsPlaying(false);
-            }
-        }
-    };
-    loadAndPlay();
-  }, [currentSong, isPlaying, activePlayerRef, inactivePlayerRef, preloadSong, queue, currentQueueIndex]);
 
   // Fetch songs with mobile-optimized caching
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
@@ -443,28 +400,18 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [queue, playFromQueue]);
 
   const togglePlay = useCallback(() => {
-    const audio = activePlayerRef.current;
-    if (!audio || !currentSong) return;
-
     if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
+      pause();
     } else {
-      if (audio.src) {
-        audio.play().then(() => setIsPlaying(true)).catch(e => console.error("Error toggling play:", e));
-      } else {
-        // If no src, selectSong should be used first.
-        // Or re-load the current song.
-        playFromQueue(currentQueueIndex);
-      }
+      resume();
     }
-  }, [isPlaying, currentSong, activePlayerRef, playFromQueue, currentQueueIndex]);
+  }, [isPlaying, pause, resume]);
 
   const setVolumeLevel = useCallback((level: number) => {
     const newVolume = level / 100;
     setVolumeState(newVolume);
     saveUserPreferences(newVolume);
-  }, [setVolumeState]);
+  }, []);
 
   return (
     <MusicPlayerContext.Provider value={{
@@ -504,11 +451,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       addSongToPlaylist: playlistOps.addSongToPlaylist,
       removeSongFromPlaylist: playlistOps.removeSongFromPlaylist,
       deletePlaylist: playlistOps.deletePlaylist,
-      activePlayerRef,
     }}>
       {children}
-      <audio ref={audioRefA} preload="auto" crossOrigin="anonymous" />
-      <audio ref={audioRefB} preload="auto" crossOrigin="anonymous" />
     </MusicPlayerContext.Provider>
   );
 };
