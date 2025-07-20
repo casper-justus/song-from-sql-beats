@@ -23,7 +23,7 @@ export function TopNavbar() {
   const inactiveClassName = "text-white/60 hover:bg-white/10 hover:text-white";
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+    <div className="fixed top-8 left-1/2 -translate-x-1/2 z-50">
         {/* Mobile: Pill shape */}
         <div
             className="md:hidden flex items-center gap-2 p-2 rounded-full border border-white/10 shadow-lg transition-colors duration-500"
