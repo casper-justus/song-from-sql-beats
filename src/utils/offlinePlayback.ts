@@ -33,7 +33,7 @@ export async function downloadSong(song: Song): Promise<string | undefined> {
     });
 
     const result = await FileTransfer.downloadFile({
-      url: song.streamUrl,
+      url: `${window.location.origin}/${song.streamUrl}`,
       path: filePath,
       progress: true,
     });

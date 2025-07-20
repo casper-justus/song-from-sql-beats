@@ -1,81 +1,81 @@
 import { useState, useEffect } from 'react';
-import { registerPlugin } from '@capacitor/core';
-import type { AudioPlayerPlugin, AudioPlayerPluginEvents } from '@mediagrid/capacitor-native-audio';
-const AudioPlayerPlugin = registerPlugin<AudioPlayerPlugin>('AudioPlayerPlugin');
-
-const AUDIO_PLAYER_ID = "myMusicPlayer";
+import { NativeAudio } from '@capacitor-community/native-audio';
 
 export const useNativeAudio = () => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        await AudioPlayerPlugin.initialize({ audioPlayerId: AUDIO_PLAYER_ID, source: "" });
+    const onPlaying = NativeAudio.addListener('audioPlaying', () => setIsPlaying(true));
+    const onPaused = NativeAudio.addListener('audioPaused', () => setIsPlaying(false));
+    const onEnded = NativeAudio.addListener('audioFinished', () => setIsPlaying(false));
+    const onError = NativeAudio.addListener('audioError', (error) => console.error('Audio playback error:', error));
 
-        AudioPlayerPlugin.addListener(AudioPlayerPluginEvents.StateChange, (state) => {
-          setIsPlaying(state.isPlaying);
-        });
-
-        AudioPlayerPlugin.addListener(AudioPlayerPluginEvents.Progress, (info) => {
-          setCurrentTime(info.currentTime);
-          setDuration(info.duration);
-        });
-      } catch (error) {
-        console.error('Error initializing audio player:', error);
-      }
+    return () => {
+      onPlaying.remove();
+      onPaused.remove();
+      onEnded.remove();
+      onError.remove();
     };
-    initialize();
   }, []);
 
-  const play = async (song: { localPath?: string; streamUrl: string; album: string; artist: string; title: string; artworkUrl: string; }) => {
+  const play = async (song: { assetId: string, localPath?: string, streamUrl: string, title: string, artist: string, album: string, artworkUrl: string }) => {
     try {
-      await AudioPlayerPlugin.changeAudioSource({
-        audioPlayerId: AUDIO_PLAYER_ID,
-        source: song.localPath || song.streamUrl,
+      await NativeAudio.preload({
+        assetId: song.assetId,
+        assetPath: song.localPath || song.streamUrl,
+        audioType: 'file',
+        isUrl: !!song.streamUrl,
       });
-      await AudioPlayerPlugin.changeMetadata({
-        audioPlayerId: AUDIO_PLAYER_ID,
-        albumTitle: song.album,
-        artistName: song.artist,
-        friendlyTitle: song.title,
-        artworkSource: song.artworkUrl,
-      });
-      await AudioPlayerPlugin.play({ audioPlayerId: AUDIO_PLAYER_ID });
+      await NativeAudio.play({ assetId: song.assetId });
     } catch (error) {
-      console.error(`Error playing song ${song.title}:`, error);
+      console.error('Error playing audio:', error);
     }
   };
 
   const pause = async () => {
-    await AudioPlayerPlugin.pause({ audioPlayerId: AUDIO_PLAYER_ID });
+    try {
+      await NativeAudio.pause();
+    } catch (error) {
+      console.error('Error pausing audio:', error);
+    }
   };
 
   const resume = async () => {
-    await AudioPlayerPlugin.play({ audioPlayerId: AUDIO_PLAYER_ID });
+    try {
+      await NativeAudio.resume();
+    } catch (error) {
+      console.error('Error resuming audio:', error);
+    }
   };
 
-  const stop = async () => {
-    await AudioPlayerPlugin.stop({ audioPlayerId: AUDIO_PLAYER_ID });
+  const stop = async (assetId: string) => {
+    try {
+      await NativeAudio.stop({ assetId });
+      await NativeAudio.unload({ assetId });
+    } catch (error) {
+      console.error('Error stopping audio:', error);
+    }
   };
 
-  const seek = async (timeInSeconds: number) => {
-    await AudioPlayerPlugin.seek({
-      audioPlayerId: AUDIO_PLAYER_ID,
-      timeInSeconds: timeInSeconds,
-    });
+  const seek = async (time: number) => {
+    try {
+      await NativeAudio.seek({ time });
+    } catch (error) {
+      console.error('Error seeking audio:', error);
+    }
   };
 
-  return {
-    isPlaying,
-    currentTime,
-    duration,
-    play,
-    pause,
-    resume,
-    stop,
-    seek,
-  };
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (isPlaying) {
+        const { currentTime } = await NativeAudio.getCurrentTime();
+        setCurrentTime(currentTime);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
+  return { isPlaying, duration, currentTime, play, pause, resume, stop, seek };
 };
