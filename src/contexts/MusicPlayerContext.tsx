@@ -7,8 +7,12 @@ import { usePlaylistOperations } from '@/hooks/usePlaylistOperations';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { resolveMediaUrl, startBackgroundPrefetch, preloadQueue, fetchLyricsContent, audioBlobCache } from '@/utils/mediaCache'; // Added audioBlobCache
 import { saveUserPreferences, loadUserPreferences } from '@/utils/playerStorage';
+import { isSongDownloaded } from '@/utils/offlinePlayback';
 
-type Song = Tables<'songs'>;
+type Song = Tables<'songs'> & {
+  isDownloaded?: boolean;
+  localPath?: string;
+};
 type Playlist = Tables<'playlists'>;
 
 interface MusicPlayerContextType {
@@ -77,10 +81,16 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   // Enhanced URL resolution with mobile optimization
   const resolveMediaUrlWithSession = useCallback(async (
-    fileKey: string,
+    song: Song,
     isAudioFile: boolean = false,
     priority: 'high' | 'normal' = 'normal'
   ): Promise<string | null> => {
+    const localPath = await isSongDownloaded(song.id);
+    if (localPath) {
+      return localPath;
+    }
+    const fileKey = song.storage_path || song.file_url;
+    if (!fileKey) return null;
     return resolveMediaUrl(fileKey, session, isAudioFile, priority);
   }, [session]);
 
@@ -90,12 +100,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Define playback functions before they are used in hooks
   const preloadSong = useCallback(async (song: Song | null, playerRef: React.RefObject<HTMLAudioElement>) => {
     if (!song || !playerRef.current) return;
-    const audioFileKey = song.storage_path || song.file_url;
-    if (!audioFileKey) return;
     console.log(`[Gapless] Preloading ${song.title}`);
     let audioSrc = audioBlobCache.get(song.id) ? URL.createObjectURL(audioBlobCache.get(song.id)!) : null;
     if (!audioSrc) {
-        audioSrc = await resolveMediaUrlWithSession(audioFileKey, true, 'high');
+        audioSrc = await resolveMediaUrlWithSession(song, true, 'high');
     }
     if (audioSrc) {
         playerRef.current.src = audioSrc;
@@ -226,22 +234,37 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Initialize with aggressive prefetching
   useEffect(() => {
     if (songsError) console.error("Error in fetchedSongs query:", songsError);
-    setSongs(fetchedSongs);
 
-    if (fetchedSongs.length > 0 && !isInitialized && session) {
-      setIsInitialized(true);
-      setQueue(fetchedSongs, 0);
-
-      // Start aggressive background prefetching
-      startBackgroundPrefetch(fetchedSongs, resolveMediaUrlWithSession, 0)
-        .then(() => {
-          console.log('Background prefetching completed');
-          setPreloadProgress(100);
+    const checkDownloads = async () => {
+      const songsWithDownloadStatus = await Promise.all(
+        fetchedSongs.map(async (song: Song) => {
+          const localPath = await isSongDownloaded(song.id);
+          return {
+            ...song,
+            isDownloaded: !!localPath,
+            localPath: localPath || undefined,
+          };
         })
-        .catch(error => {
-          console.error('Background prefetching failed:', error);
-        });
-    }
+      );
+      setSongs(songsWithDownloadStatus);
+
+      if (songsWithDownloadStatus.length > 0 && !isInitialized && session) {
+        setIsInitialized(true);
+        setQueue(songsWithDownloadStatus, 0);
+
+        // Start aggressive background prefetching
+        startBackgroundPrefetch(songsWithDownloadStatus, (song) => resolveMediaUrlWithSession(song), 0)
+          .then(() => {
+            console.log('Background prefetching completed');
+            setPreloadProgress(100);
+          })
+          .catch(error => {
+            console.error('Background prefetching failed:', error);
+          });
+      }
+    };
+
+    checkDownloads();
   }, [fetchedSongs, songsError, resolveMediaUrlWithSession, isInitialized, session, setQueue]);
 
   useEffect(() => {
@@ -287,10 +310,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const addToQueue = useCallback((song: Song) => {
     setQueueState(prev => [...prev, song]);
     // Prefetch the newly added song
-    const audioFileKey = song.storage_path || song.file_url;
-    if (audioFileKey) {
-      resolveMediaUrlWithSession(audioFileKey, true, 'normal');
-    }
+    resolveMediaUrlWithSession(song, true, 'normal');
   }, [resolveMediaUrlWithSession]);
 
   const removeFromQueue = useCallback((index: number) => {
@@ -326,27 +346,24 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       console.log(`[MusicPlayerContext] Added "${song.title}" to play next. New queue length: ${newQueue.length}`);
 
       // Aggressively preload this newly inserted "play next" song (URL and Blob)
-      const audioFileKey = song.storage_path || song.file_url;
-      if (audioFileKey) {
-        resolveMediaUrlWithSession(audioFileKey, true, 'high').then(async (url) => {
-          if (url) {
-            preloadQueue.set(song.id, Promise.resolve(url));
-            if (!audioBlobCache.has(song.id)) {
-              console.log(`[MusicPlayerContext] playNextInQueue: Attempting to fully preload blob for ${song.title}`);
-              try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                const blob = await response.blob();
-                audioBlobCache.set(song.id, blob);
-                manageAudioBlobCache(song.id); // Manage cache size
-                console.log(`[MusicPlayerContext] playNextInQueue: Fully preloaded blob for ${song.title}. Blob cache size: ${audioBlobCache.size}`);
-              } catch (blobError) {
-                console.warn(`[MusicPlayerContext] playNextInQueue: Failed to fully preload blob for ${song.title}:`, blobError);
-              }
+      resolveMediaUrlWithSession(song, true, 'high').then(async (url) => {
+        if (url) {
+          preloadQueue.set(song.id, Promise.resolve(url));
+          if (!audioBlobCache.has(song.id)) {
+            console.log(`[MusicPlayerContext] playNextInQueue: Attempting to fully preload blob for ${song.title}`);
+            try {
+              const response = await fetch(url);
+              if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+              const blob = await response.blob();
+              audioBlobCache.set(song.id, blob);
+              manageAudioBlobCache(song.id); // Manage cache size
+              console.log(`[MusicPlayerContext] playNextInQueue: Fully preloaded blob for ${song.title}. Blob cache size: ${audioBlobCache.size}`);
+            } catch (blobError) {
+              console.warn(`[MusicPlayerContext] playNextInQueue: Failed to fully preload blob for ${song.title}:`, blobError);
             }
           }
-        });
-      }
+        }
+      });
       return newQueue;
     });
   }, [currentQueueIndex, resolveMediaUrlWithSession]);
