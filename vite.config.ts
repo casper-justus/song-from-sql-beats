@@ -17,11 +17,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-    },
-  },
-  build: {
-    rollupOptions: {
-      external: ["capacitor-native-audio"],
+      "capacitor-native-audio": path.resolve(__dirname, "node_modules/@mediagrid/capacitor-native-audio/dist/esm/index.js"),
     },
   },
 }));
