@@ -129,10 +129,10 @@ export default function LikedSongsPage() {
           {likedSongsDetails.map((song, index) => (
             <div
               key={song.id}
-              className="flex items-center p-3 bg-gray-800/70 hover:bg-gray-700/80 rounded-lg transition-colors duration-200 group"
+              className="flex items-center p-2 sm:p-3 bg-gray-800/70 hover:bg-gray-700/80 rounded-lg transition-colors duration-200 group"
             >
-              <span className="text-gray-400 w-8 text-center mr-3">{index + 1}</span>
-              <div className="w-12 h-12 rounded object-cover mr-4 flex-shrink-0 bg-gray-700">
+              <span className="text-gray-400 w-8 text-center mr-2 sm:mr-3">{index + 1}</span>
+              <div className="w-12 h-12 rounded object-cover mr-3 sm:mr-4 flex-shrink-0 bg-gray-700">
                 <ResolvedCoverImage
                   imageKey={song.cover_url}
                   videoId={song.video_id}
@@ -146,7 +146,7 @@ export default function LikedSongsPage() {
                 </p>
                 <p className="text-sm text-gray-400 truncate">{song.artist || "Unknown Artist"}</p>
               </div>
-              <div className="flex items-center space-x-3 ml-auto">
+              <div className="flex items-center space-x-1 sm:space-x-3 ml-auto">
                 <Button
                   variant="ghost"
                   size="icon"
