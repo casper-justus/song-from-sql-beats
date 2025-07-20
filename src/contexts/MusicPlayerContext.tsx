@@ -359,7 +359,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   // Update volume
   useEffect(() => {
-    setVolume(volume);
+    // setVolume(volume);
   }, [volume]);
 
   // Enhanced lyrics fetching

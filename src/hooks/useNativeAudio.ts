@@ -9,16 +9,24 @@ export const useNativeAudio = () => {
   const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
-    const onPlay = AudioPlayer.addListener('onPlay', () => setIsPlaying(true));
-    const onPause = AudioPlayer.addListener('onPause', () => setIsPlaying(false));
-    const onEnded = AudioPlayer.addListener('onEnded', () => setIsPlaying(false));
-    const onError = AudioPlayer.addListener('onError', (error) => console.error('Audio playback error:', error));
+    const setupListeners = async () => {
+      const onPlay = await AudioPlayer.addListener('onPlay', () => setIsPlaying(true));
+      const onPause = await AudioPlayer.addListener('onPause', () => setIsPlaying(false));
+      const onEnded = await AudioPlayer.addListener('onEnded', () => setIsPlaying(false));
+      const onError = await AudioPlayer.addListener('onError', (error) => console.error('Audio playback error:', error));
+
+      return () => {
+        onPlay.remove();
+        onPause.remove();
+        onEnded.remove();
+        onError.remove();
+      };
+    };
+
+    const removeListeners = setupListeners();
 
     return () => {
-      onPlay.remove();
-      onPause.remove();
-      onEnded.remove();
-      onError.remove();
+      removeListeners.then(fn => fn());
     };
   }, []);
 
