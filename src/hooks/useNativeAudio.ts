@@ -7,16 +7,20 @@ export const useNativeAudio = () => {
   const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
-    const onPlaying = NativeAudio.addListener('audioPlaying', () => setIsPlaying(true));
-    const onPaused = NativeAudio.addListener('audioPaused', () => setIsPlaying(false));
-    const onEnded = NativeAudio.addListener('audioFinished', () => setIsPlaying(false));
-    const onError = NativeAudio.addListener('audioError', (error) => console.error('Audio playback error:', error));
+    const setupListeners = async () => {
+      const onComplete = await NativeAudio.addListener('complete', (event) => {
+        setIsPlaying(false);
+      });
+
+      return () => {
+        onComplete.remove();
+      };
+    };
+
+    const removeListeners = setupListeners();
 
     return () => {
-      onPlaying.remove();
-      onPaused.remove();
-      onEnded.remove();
-      onError.remove();
+      removeListeners.then(fn => fn());
     };
   }, []);
 
@@ -25,26 +29,29 @@ export const useNativeAudio = () => {
       await NativeAudio.preload({
         assetId: song.assetId,
         assetPath: song.localPath || song.streamUrl,
-        audioType: 'file',
         isUrl: !!song.streamUrl,
+        volume: 1.0,
+        audioChannelNum: 1,
       });
       await NativeAudio.play({ assetId: song.assetId });
+      const { duration } = await NativeAudio.getDuration({ assetId: song.assetId });
+      setDuration(duration);
     } catch (error) {
       console.error('Error playing audio:', error);
     }
   };
 
-  const pause = async () => {
+  const pause = async (assetId: string) => {
     try {
-      await NativeAudio.pause();
+      await NativeAudio.pause({ assetId });
     } catch (error) {
       console.error('Error pausing audio:', error);
     }
   };
 
-  const resume = async () => {
+  const resume = async (assetId: string) => {
     try {
-      await NativeAudio.resume();
+      await NativeAudio.resume({ assetId });
     } catch (error) {
       console.error('Error resuming audio:', error);
     }
@@ -59,18 +66,16 @@ export const useNativeAudio = () => {
     }
   };
 
-  const seek = async (time: number) => {
-    try {
-      await NativeAudio.seek({ time });
-    } catch (error) {
-      console.error('Error seeking audio:', error);
-    }
+  const seek = async (assetId: string, time: number) => {
+    // Not directly supported by the plugin, but can be implemented
+    // by stopping and starting at a new position if needed.
+    console.warn('Seek is not implemented in this version of the plugin.');
   };
 
   useEffect(() => {
     const interval = setInterval(async () => {
       if (isPlaying) {
-        const { currentTime } = await NativeAudio.getCurrentTime();
+        const { currentTime } = await NativeAudio.getCurrentTime({ assetId: '' });
         setCurrentTime(currentTime);
       }
     }, 1000);
