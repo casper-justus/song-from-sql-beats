@@ -136,7 +136,7 @@ export default function SearchPage() {
             <h2 className="text-2xl font-semibold mb-4">
               Search Results ({searchResults.length})
             </h2>
-            <div className="grid gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {searchResults.map((song) => (
                 <Card key={song.id} className="bg-gray-800/50 border-gray-700 hover:bg-gray-700/50 transition-colors">
                   <CardContent className="p-4">
