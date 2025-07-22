@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { useEffect } from "react";
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { App as CapacitorApp } from '@capacitor/app';
 
 import { MusicPlayerProvider } from "./contexts/MusicPlayerContext";
 import { ClerkSupabaseProvider } from "./contexts/ClerkSupabaseContext";
@@ -41,11 +43,27 @@ const AppContent = () => {
   const { isSignedIn } = useUser();
   useKeyboardShortcuts();
 
+  useEffect(() => {
+    const setStatusBarStyle = async () => {
+      await StatusBar.setStyle({ style: Style.Dark });
+      await StatusBar.setOverlaysWebView({ overlay: true });
+    };
+    setStatusBarStyle();
+
+    CapacitorApp.addListener('appUrlOpen', (data: any) => {
+      const url = new URL(data.url);
+      const token = url.searchParams.get('__clerk_db_jwt');
+      if (token) {
+        window.location.href = '/';
+      }
+    });
+  }, []);
+
 
   return (
     <div className="min-h-screen relative">
       <DynamicBackground />
-      <TopNavbar />
+      {isSignedIn && <TopNavbar />}
       <div className="relative z-10 pt-24 pb-40">
         <Routes>
           <Route path="/" element={<Index />} />

@@ -25,6 +25,9 @@ const config: CapacitorConfig = {
     NativeAudio: {
       disableWakeLock: true,
     },
+    App: {
+      deepLink: 'com.example.app://callback',
+    },
   },
 };
 
