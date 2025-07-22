@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
+import { AndroidEdgeToEdge } from '@capawesome/capacitor-android-edge-to-edge';
+import { useEffect } from "react";
 
 import { MusicPlayerProvider } from "./contexts/MusicPlayerContext";
 import { ClerkSupabaseProvider } from "./contexts/ClerkSupabaseContext";
@@ -38,6 +40,17 @@ const queryClient = new QueryClient({
 const AppContent = () => {
   const { isSignedIn } = useUser();
   useKeyboardShortcuts();
+
+  useEffect(() => {
+    const enableEdgeToEdge = async () => {
+      try {
+        await AndroidEdgeToEdge.enable();
+      } catch (e) {
+        console.error('Failed to enable edge to edge', e);
+      }
+    };
+    enableEdgeToEdge();
+  }, []);
 
   return (
     <div className="min-h-screen relative">
