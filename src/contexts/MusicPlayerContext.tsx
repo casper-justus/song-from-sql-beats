@@ -77,6 +77,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const queryClient = useQueryClient();
   const currentObjectUrlRef = React.useRef<string | null>(null); // To store and revoke blob URLs
 
+
   const {
     isPlaying,
     currentTime,
@@ -85,7 +86,16 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     pause,
     resume,
     seek,
-  } = useNativeAudio();
+  } = useNativeAudio({
+    onNext: playNext,
+    onPrevious: playPrevious,
+  });
+
+  const seekTo = (time: number) => {
+    if (currentSong) {
+      seek(currentSong.id, time);
+    }
+  };
 
   // Enhanced URL resolution with mobile optimization
   const resolveMediaUrlWithSession = useCallback(async (
@@ -448,7 +458,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       removeFromQueue,
       reorderQueueItem,
       clearQueue,
-      seek,
+      seek: seekTo,
       setVolumeLevel,
       setShowLyricsDialog,
       setShowQueueDialog,

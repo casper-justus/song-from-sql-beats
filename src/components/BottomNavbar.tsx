@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Heart, List } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Heart, List, Download } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -224,6 +225,15 @@ export function BottomNavbar() {
         >
           <List className="w-5 h-5" />
         </Button>
+        <Link to="/downloads">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white/70 hover:text-white"
+          >
+            <Download className="w-5 h-5" />
+          </Button>
+        </Link>
       </div>
     </div>
   );
