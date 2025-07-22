@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
-import { Fullscreen } from '@boengli/capacitor-fullscreen';
 import { useEffect } from "react";
 
 import { MusicPlayerProvider } from "./contexts/MusicPlayerContext";
@@ -42,16 +41,6 @@ const AppContent = () => {
   const { isSignedIn } = useUser();
   useKeyboardShortcuts();
 
-  useEffect(() => {
-    const enableImmersiveMode = async () => {
-      try {
-        await Fullscreen.activateImmersiveMode();
-      } catch (e) {
-        console.error('Failed to enable immersive mode', e);
-      }
-    };
-    enableImmersiveMode();
-  }, []);
 
   return (
     <div className="min-h-screen relative">

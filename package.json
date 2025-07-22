@@ -15,7 +15,6 @@
     "start": "npm run dev"
   },
   "dependencies": {
-    "@boengli/capacitor-fullscreen": "^0.0.19",
     "@capacitor-community/native-audio": "^7.0.0",
     "@capacitor/android": "^7.4.2",
     "@capacitor/app": "^7.0.1",
