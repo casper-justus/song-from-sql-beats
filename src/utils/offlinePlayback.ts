@@ -1,5 +1,4 @@
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { FileTransfer } from '@capacitor/file-transfer';
 
 export interface Song {
   id: string; // Unique ID for the song
@@ -16,38 +15,34 @@ export interface Song {
 export async function downloadSong(song: Song): Promise<string | undefined> {
   try {
     const fileName = `${song.id}.mp3`; // Use a unique filename, e.g., based on ID
-    const { uri: filePath } = await Filesystem.getUri({
+
+    // Ensure the music directory exists
+    try {
+      await Filesystem.mkdir({
+        path: 'music',
+        directory: Directory.Data,
+        recursive: true // Make sure parent directories are created
+      });
+    } catch(e) {
+      // Ignore error if directory already exists
+    }
+
+    const { uri } = await Filesystem.downloadFile({
+      path: `music/${fileName}`,
       directory: Directory.Data,
-      path: `music/${fileName}`, // Store in 'music' subfolder of app's private data
-    });
-
-    console.log(`Starting download for ${song.title} to: ${filePath}`);
-
-    // Add a listener for progress updates (optional, but good for UI)
-    const listener = await FileTransfer.addListener('progress', (progress) => {
-      if (progress.type === 'download' && progress.url === song.streamUrl) {
-        const percentage = (progress.bytes / progress.contentLength) * 100;
-        // console.log(`Downloading ${song.title}: ${percentage.toFixed(2)}%`);
-        // You would typically update a UI progress bar here
-      }
-    });
-
-    const result = await FileTransfer.downloadFile({
-      url: `${window.location.origin}/${song.streamUrl}`,
-      path: filePath,
+      url: song.streamUrl,
       progress: true,
     });
 
-    console.log(`Download complete for ${song.title}! Local path: ${result.path}`);
-    listener.remove(); // Remove the listener after download completes
+    console.log(`Download complete for ${song.title}! Local path: ${uri}`);
 
     // Update the song object to reflect its downloaded status
-    song.localPath = result.path;
+    song.localPath = uri;
     song.isDownloaded = true;
     // You'll want to save this updated song object to your app's persistent storage
     // (e.g., IndexedDB, local storage, or a custom file managed by Filesystem)
 
-    return result.path; // Return the local file URI
+    return uri; // Return the local file URI
   } catch (error) {
     console.error(`Error downloading ${song.title}:`, error);
     // Handle specific errors like network issues, storage full, etc.
