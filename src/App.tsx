@@ -1,3 +1,4 @@
+import { MusicPlayerProvider } from "./contexts/MusicPlayerContext";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,7 +9,6 @@ import { useEffect } from "react";
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { App as CapacitorApp } from '@capacitor/app';
 
-import { MusicPlayerProvider } from "./contexts/MusicPlayerContext";
 import { ClerkSupabaseProvider } from "./contexts/ClerkSupabaseContext";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
