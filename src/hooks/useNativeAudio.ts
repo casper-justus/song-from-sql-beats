@@ -5,6 +5,7 @@ export const useNativeAudio = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [currentAssetId, setCurrentAssetId] = useState<string | null>(null);
 
   useEffect(() => {
     const setupListeners = async () => {
@@ -26,6 +27,9 @@ export const useNativeAudio = () => {
 
   const play = async (song: { assetId: string, localPath?: string, streamUrl: string, title: string, artist: string, album: string, artworkUrl: string }) => {
     try {
+      if (currentAssetId) {
+        await stop(currentAssetId);
+      }
       await NativeAudio.preload({
         assetId: song.assetId,
         assetPath: song.localPath || song.streamUrl,
@@ -36,6 +40,8 @@ export const useNativeAudio = () => {
       await NativeAudio.play({ assetId: song.assetId });
       const { duration } = await NativeAudio.getDuration({ assetId: song.assetId });
       setDuration(duration);
+      setCurrentAssetId(song.assetId);
+      setIsPlaying(true);
     } catch (error) {
       console.error('Error playing audio:', error);
     }
@@ -44,6 +50,7 @@ export const useNativeAudio = () => {
   const pause = async (assetId: string) => {
     try {
       await NativeAudio.pause({ assetId });
+      setIsPlaying(false);
     } catch (error) {
       console.error('Error pausing audio:', error);
     }
@@ -52,6 +59,7 @@ export const useNativeAudio = () => {
   const resume = async (assetId: string) => {
     try {
       await NativeAudio.resume({ assetId });
+      setIsPlaying(true);
     } catch (error) {
       console.error('Error resuming audio:', error);
     }
@@ -61,6 +69,8 @@ export const useNativeAudio = () => {
     try {
       await NativeAudio.stop({ assetId });
       await NativeAudio.unload({ assetId });
+      setIsPlaying(false);
+      setCurrentAssetId(null);
     } catch (error) {
       console.error('Error stopping audio:', error);
     }
@@ -74,13 +84,13 @@ export const useNativeAudio = () => {
 
   useEffect(() => {
     const interval = setInterval(async () => {
-      if (isPlaying) {
-        const { currentTime } = await NativeAudio.getCurrentTime({ assetId: '' });
+      if (isPlaying && currentAssetId) {
+        const { currentTime } = await NativeAudio.getCurrentTime({ assetId: currentAssetId });
         setCurrentTime(currentTime);
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [isPlaying, currentAssetId]);
 
   return { isPlaying, duration, currentTime, play, pause, resume, stop, seek };
 };
