@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
-import { AndroidEdgeToEdge } from '@capawesome/capacitor-android-edge-to-edge';
+import { Fullscreen } from '@boengli/capacitor-fullscreen';
 import { useEffect } from "react";
 
 import { MusicPlayerProvider } from "./contexts/MusicPlayerContext";
@@ -42,14 +42,14 @@ const AppContent = () => {
   useKeyboardShortcuts();
 
   useEffect(() => {
-    const enableEdgeToEdge = async () => {
+    const enableImmersiveMode = async () => {
       try {
-        await AndroidEdgeToEdge.enable();
+        await Fullscreen.activateImmersiveMode();
       } catch (e) {
-        console.error('Failed to enable edge to edge', e);
+        console.error('Failed to enable immersive mode', e);
       }
     };
-    enableEdgeToEdge();
+    enableImmersiveMode();
   }, []);
 
   return (
