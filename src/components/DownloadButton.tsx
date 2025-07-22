@@ -4,6 +4,8 @@ import { Download, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { downloadSong, deleteDownloadedSong, isSongDownloaded } from '@/utils/offlinePlayback';
 import { Tables } from '@/integrations/supabase/types';
+import { useSession } from '@clerk/clerk-react';
+import { resolveMediaUrl } from '@/utils/mediaCache';
 import { cn } from '@/lib/utils';
 
 type Song = Tables<'songs'> & {
@@ -33,13 +35,15 @@ export function DownloadButton({ song, className }: DownloadButtonProps) {
     checkStatus();
   }, [song.id]);
 
+  const { session } = useSession();
+
   const handleDownload = async () => {
     if (downloadStatus === 'downloading' || downloadStatus === 'downloaded') return;
 
     setDownloadStatus('downloading');
     setProgress(0);
 
-    const streamUrl = song.storage_path || song.file_url;
+    const streamUrl = await resolveMediaUrl(song.storage_path || song.file_url, session, true, 'high');
     if (!streamUrl) {
       setDownloadStatus('error');
       return;

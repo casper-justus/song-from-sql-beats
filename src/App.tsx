@@ -20,6 +20,7 @@ import LikedSongsPage from "./pages/LikedSongsPage";
 import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
 import PlaylistDetailPage from "./pages/PlaylistDetailPage"; // Added import
+import DownloadsPage from "./pages/DownloadsPage";
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
 import { TopNavbar } from "./components/TopNavbar";
 import { BottomNavbar } from "./components/BottomNavbar";
@@ -67,6 +68,7 @@ const AppContent = () => {
             <Route path="/liked" element={<LikedSongsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/playlist/:playlistId" element={<PlaylistDetailPage />} />
+            <Route path="/downloads" element={<DownloadsPage />} />
           </Route>
 
           <Route path="/search" element={<SearchPage />} />

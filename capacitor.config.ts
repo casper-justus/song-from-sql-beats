@@ -22,6 +22,9 @@ const config: CapacitorConfig = {
       style: 'DARK',
       overlay: true,
     },
+    NativeAudio: {
+      disableWakeLock: true,
+    },
   },
 };
 

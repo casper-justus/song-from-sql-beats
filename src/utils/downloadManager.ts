@@ -1,5 +1,7 @@
 
 import { resolveMediaUrl } from './mediaCache';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { FileTransfer, FileTransferObject } from '@capacitor-community/file-transfer';
 
 interface DownloadProgress {
   songId: string;
@@ -62,36 +64,13 @@ class DownloadManager {
       });
       this.notifyListeners();
 
-      const response = await fetch(resolvedUrl, {
-        signal: abortController.signal
-      });
+      const fileTransfer: FileTransferObject = FileTransfer.create();
+      const uri = encodeURI(resolvedUrl);
+      const path = `${Directory.Data}/${fileName}`;
 
-      if (!response.ok) {
-        throw new Error(`Download failed: ${response.statusText}`);
-      }
-
-      const contentLength = response.headers.get('content-length');
-      const total = contentLength ? parseInt(contentLength, 10) : 0;
-      
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('Stream not available');
-
-      const chunks: Uint8Array[] = [];
-      let downloaded = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        if (abortController.signal.aborted) {
-          throw new Error('Download cancelled');
-        }
-
-        chunks.push(value);
-        downloaded += value.length;
-
-        if (total > 0) {
-          const progress = Math.min(Math.round(((downloaded / total) * 90) + 10), 95);
+      fileTransfer.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
           this.downloads.set(song.id, {
             songId: song.id,
             progress,
@@ -100,23 +79,9 @@ class DownloadManager {
           });
           this.notifyListeners();
         }
-      }
+      };
 
-      // Create blob and trigger download
-      const blob = new Blob(chunks, { type: mimeType }); // Use inferred MIME type
-      const url = URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Clean up
-      URL.revokeObjectURL(url);
-      this.abortControllers.delete(song.id);
+      const entry = await fileTransfer.download(uri, path);
 
       this.downloads.set(song.id, {
         songId: song.id,
@@ -124,7 +89,6 @@ class DownloadManager {
         status: 'completed',
         fileName
       });
-
       this.notifyListeners();
 
       // Add to localStorage
@@ -138,6 +102,7 @@ class DownloadManager {
             artist: song.artist || 'Unknown Artist',
             fileName,
             downloadedAt: new Date().toISOString(),
+            localPath: entry.toURL()
           });
           localStorage.setItem('downloadedSongsList', JSON.stringify(downloadedSongs));
         }
