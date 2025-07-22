@@ -6,7 +6,6 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
     port: 8080,
   },
   plugins: [
@@ -17,7 +16,6 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "capacitor-native-audio": path.resolve(__dirname, "node_modules/@mediagrid/capacitor-native-audio/dist/esm/index.js"),
     },
   },
 }));
