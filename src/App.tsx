@@ -96,17 +96,13 @@ const AppContent = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ClerkSupabaseProvider>
-      <MusicPlayerProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppContent />
-          </BrowserRouter>
-        </TooltipProvider>
-      </MusicPlayerProvider>
-    </ClerkSupabaseProvider>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 
