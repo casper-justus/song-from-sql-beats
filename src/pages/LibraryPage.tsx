@@ -138,7 +138,7 @@ export default function LibraryPage() {
           </div>
           
           {playlists.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {playlists.map((playlist) => (
                 <Link to={`/playlist/${playlist.id}`} key={playlist.id} className="block hover:no-underline">
                   <Card className="bg-gray-800 border-gray-700 hover:bg-gray-700/70 transition-colors h-full flex flex-col">

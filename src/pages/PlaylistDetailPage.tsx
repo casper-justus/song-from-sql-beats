@@ -171,11 +171,11 @@ const PlaylistDetailPage = () => {
                 <Play className="w-5 h-5 mr-2" /> Play All
               </Button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {songsToDisplay.map((song, index) => (
                 <div
                   key={song.id}
-                  className={`p-3 rounded-lg transition-all duration-200 hover:bg-white/10 group flex items-center gap-4 ${
+                  className={`p-2 sm:p-3 rounded-lg transition-all duration-200 hover:bg-white/10 group flex items-center gap-3 sm:gap-4 ${
                     currentSong?.id === song.id ? 'bg-white/20 border border-yellow-500/50' : 'bg-gray-800/40 border border-transparent'
                   }`}
                 >
@@ -197,7 +197,7 @@ const PlaylistDetailPage = () => {
                       {song.artist} {song.album ? `• ${song.album}` : ''}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <Button
                       variant="ghost"
                       size="icon"
