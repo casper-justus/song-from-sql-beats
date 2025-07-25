@@ -37,7 +37,7 @@ export function usePlaylistOperations() {
         name,
         description: description || null
       });
-      
+
       if (error) {
         console.error('Error creating playlist:', error);
         throw error; // Re-throw to allow component to handle
@@ -64,7 +64,7 @@ export function usePlaylistOperations() {
         playlist_id: playlistId,
         song_id: songId
       });
-      
+
       if (error) {
         console.error('Error adding song to playlist:', error);
         throw error;
@@ -87,7 +87,7 @@ export function usePlaylistOperations() {
       const { error } = await supabase.from('playlist_songs')
         .delete()
         .match({ playlist_id: playlistId, song_id: songId });
-      
+
       if (error) {
         console.error('Error removing song from playlist:', error);
         throw error;
@@ -109,7 +109,7 @@ export function usePlaylistOperations() {
     try {
       // For delete, you'd typically also have an RLS policy ensuring the user owns the playlist
       const { error } = await supabase.from('playlists').delete().eq('id', playlistId);
-      
+
       if (error) {
         console.error('Error deleting playlist:', error);
         throw error;
@@ -127,19 +127,19 @@ export function usePlaylistOperations() {
     if (!checkReadiness('toggleLikeSong')) {
       return null; // Return null or throw as appropriate for this operation
     }
-    
+
     const isLiked = likedSongIds.has(songId);
-    
+
     try {
       if (isLiked) {
         const { error } = await supabase
           .from('user_liked_songs')
           .delete()
           .eq('user_id', user!.id)
-          .eq('song_id', songId);
-        
+          .eq('song_id', songId); // songId is already a parameter
+
         if (error) throw error;
-        
+
         console.log(`Song ${songId} unliked successfully.`);
         queryClient.invalidateQueries({ queryKey: ['userLikedSongs', user!.id] }); // Invalidate for the user
         return { action: 'remove', songId };
@@ -148,12 +148,12 @@ export function usePlaylistOperations() {
           .from('user_liked_songs')
           .insert({
             user_id: user!.id,
-            song_id: songId,
+            song_id: songId, // songId is already a parameter
             liked_at: new Date().toISOString()
           });
-        
+
         if (error) throw error;
-        
+
         console.log(`Song ${songId} liked successfully.`);
         queryClient.invalidateQueries({ queryKey: ['userLikedSongs', user!.id] }); // Invalidate for the user
         return { action: 'add', songId };
@@ -162,7 +162,7 @@ export function usePlaylistOperations() {
       console.error('Error in toggleLikeSong:', error);
       throw error; // Propagate error
     }
-  }, [user, songId, supabase, isReady, queryClient, likedSongIds]); // Add isReady to dependencies
+  }, [user, supabase, isReady, queryClient, likedSongIds]); // Removed songId from dependencies
 
   return {
     createPlaylist,
