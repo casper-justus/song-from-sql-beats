@@ -14,10 +14,6 @@ export function TopNavbar() {
     { to: "/profile", icon: User, label: "Profile" },
   ];
 
-  const extraNavItems = [
-    { to: "/terms", label: "Terms" },
-    { to: "/privacy", label: "Privacy" },
-  ];
 
   const activeClassName = "bg-white/20 text-white";
   const inactiveClassName = "text-white/60 hover:bg-white/10 hover:text-white";
