@@ -1,50 +1,81 @@
-import { createClient } from '@supabase/supabase-js'
-import { useSession } from '@clerk/nextjs' // or '@clerk/clerk-react' depending on your framework
+import { useState, useEffect, useMemo } from 'react';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { useSession } from '@clerk/clerk-react';
+import { Database } from '@/integrations/supabase/types';
 
-// Your Supabase project URL and public anon key
-const supabaseUrl = 'https://dqckopgetuodqhgnhhxw.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxY2tvcGdldHVvZHFoZ25oaHh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExOTM5NzYsImV4cCI6MjA2Njc2OTk3Nn0.0PJ5KWUbjI4dupIxScguEf0CrYKtN-uVpVTRxHNi54w'
+const SUPABASE_URL = "https://dqckopgetuodqhgnhhxw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxY2tvcGdldHVvZHFoZ25oaHh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExOTM5NzYsImV4cCI6MjA2Njc2OTk3Nn0.0PJ5KWUbjI4dupIxScguEf0CrYKtN-uVpVTRxHNi54w";
 
+const supabaseClientInstance = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function MyComponent() {
-  const { session } = useSession()
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("Supabase URL or Anon Key is not defined. Please check your configuration.");
+}
 
-  // Create a custom Supabase client that injects the Clerk Supabase token
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      fetch: async (url, options = {}) => {
-        const clerkToken = await session?.getToken({
-          // Pass the name of the JWT template you created in the Clerk Dashboard.
-          // For this tutorial, you might have named it 'supabase'
-          template: 'supabase', // This is important if you use custom JWT templates in Clerk
-        })
+export function useClerkSupabaseClient(): {
+  supabase: SupabaseClient<Database> | null;
+  isSupabaseAuthReady: boolean;
+} {
+  const { session, isLoaded } = useSession();
+  const [isSupabaseAuthReady, setIsSupabaseAuthReady] = useState(false);
 
-        const headers = new Headers(options?.headers)
-        if (clerkToken) {
-          headers.set('Authorization', `Bearer ${clerkToken}`)
-        }
+  const supabase = supabaseClientInstance;
 
-        return fetch(url, {
-          ...options,
-          headers,
-        })
-      },
-    },
-  })
-
-  // Now you can use this `supabase` client for your database operations
-  async function createPlaylist(playlistData) {
-    // You don't need supabase.auth.getUser() here, as the token is handled by the fetch override
-    const { data, error } = await supabase
-      .from('playlists')
-      .insert([playlistData])
-
-    if (error) {
-      console.error('Error creating playlist:', error)
-    } else {
-      console.log('Playlist created:', data)
+  useEffect(() => {
+    if (!isLoaded || !supabase) {
+      setIsSupabaseAuthReady(false);
+      return;
     }
-  }
 
-  // ... rest of your component logic
+    setIsSupabaseAuthReady(false);
+
+    async function syncClerkSessionWithSupabase() {
+      if (session) {
+        try {
+          const clerkToken = await session.getToken({
+            template: 'supabase', // This must match the JWT template name configured in Clerk
+          });
+
+          if (clerkToken) {
+            // --- CRITICAL FIX HERE: REMOVE `provider: 'token'` ---
+            const { error: signInError } = await supabase.auth.signInWithIdToken({
+              token: clerkToken, // Just pass the token directly
+            });
+
+            if (signInError) {
+              console.error("Error setting Supabase session with Clerk token:", signInError);
+            } else {
+              // console.log("Supabase session successfully set via Clerk token.");
+            }
+          } else {
+            console.warn("Clerk token for 'supabase' template was null or undefined.");
+          }
+        } catch (error) {
+          console.error('Error in Clerk-Supabase sync process:', error);
+        }
+      } else {
+        try {
+          const { data: { session: supabaseCurrentSession } } = await supabase.auth.getSession();
+          if (supabaseCurrentSession) {
+            const { error: signOutError } = await supabase.auth.signOut();
+            if (signOutError) {
+              console.error("Error signing out of Supabase:", signOutError);
+            } else {
+              // console.log("Supabase session successfully cleared.");
+            }
+          }
+        } catch (error) {
+          console.error("Error checking/clearing Supabase session:", error);
+        }
+      }
+      setIsSupabaseAuthReady(true);
+    }
+
+    syncClerkSessionWithSupabase();
+  }, [session, isLoaded, supabase]);
+
+  return useMemo(() => ({
+    supabase,
+    isSupabaseAuthReady
+  }), [supabase, isSupabaseAuthReady]);
 }
