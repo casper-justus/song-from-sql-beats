@@ -42,7 +42,8 @@ const AppContent = () => {
   return (
     <div className="min-h-screen relative">
       <DynamicBackground />
-      <TopNavbar />
+      {/* Conditionally render TopNavbar based on isSignedIn */}
+      {isSignedIn && <TopNavbar />}
       <div className="relative z-10 pt-24 pb-40">
         <Routes>
           <Route path="/" element={<Index />} />
