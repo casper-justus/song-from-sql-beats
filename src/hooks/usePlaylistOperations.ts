@@ -6,10 +6,10 @@ import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext'; // Import yo
 export function usePlaylistOperations() {
   const { user } = useUser();
   // Destructure 'isReady' from your ClerkSupabaseContext
-  const { supabase, isReady } = useClerkSupabase();
+  const { supabase, isReady } = useClerkSupabase(); // Correctly getting isReady
   const queryClient = useQueryClient();
 
-  // Helper function for readiness check
+  // Helper function for readiness check to reduce repetitive code
   const checkReadiness = (operationName: string) => {
     if (!user) {
       console.warn(`[${operationName}]: User not logged in. Skipping operation.`);
@@ -28,7 +28,7 @@ export function usePlaylistOperations() {
 
   const createPlaylist = useCallback(async (name: string, description?: string) => {
     if (!checkReadiness('createPlaylist')) {
-      return;
+      return; // Early exit if not ready
     }
 
     try {
@@ -36,7 +36,7 @@ export function usePlaylistOperations() {
         user_id: user!.id, // user is guaranteed by checkReadiness
         name,
         description: description || null
-      });
+      }).select(); // Added .select() to get data back, common practice
 
       if (error) {
         console.error('Error creating playlist:', error);
@@ -52,7 +52,7 @@ export function usePlaylistOperations() {
       // Re-throw if you want the calling component to catch this
       throw err;
     }
-  }, [user, supabase, isReady, queryClient]); // Add isReady to dependencies
+  }, [user, supabase, isReady, queryClient]); // Correct dependencies
 
   const addSongToPlaylist = useCallback(async (playlistId: string, songId: string) => {
     if (!checkReadiness('addSongToPlaylist')) {
@@ -76,7 +76,7 @@ export function usePlaylistOperations() {
       console.error('An unexpected error occurred during addSongToPlaylist:', err);
       throw err;
     }
-  }, [user, supabase, isReady, queryClient]); // Add isReady to dependencies
+  }, [user, supabase, isReady, queryClient]); // Correct dependencies
 
   const removeSongFromPlaylist = useCallback(async (playlistId: string, songId: string) => {
     if (!checkReadiness('removeSongFromPlaylist')) {
@@ -99,7 +99,7 @@ export function usePlaylistOperations() {
       console.error('An unexpected error occurred during removeSongFromPlaylist:', err);
       throw err;
     }
-  }, [user, supabase, isReady, queryClient]); // Add isReady to dependencies
+  }, [user, supabase, isReady, queryClient]); // Correct dependencies
 
   const deletePlaylist = useCallback(async (playlistId: string) => {
     if (!checkReadiness('deletePlaylist')) {
@@ -107,7 +107,6 @@ export function usePlaylistOperations() {
     }
 
     try {
-      // For delete, you'd typically also have an RLS policy ensuring the user owns the playlist
       const { error } = await supabase.from('playlists').delete().eq('id', playlistId);
 
       if (error) {
@@ -115,13 +114,13 @@ export function usePlaylistOperations() {
         throw error;
       } else {
         console.log(`Playlist ${playlistId} deleted successfully.`);
-        queryClient.invalidateQueries({ queryKey: ['playlists', user!.id] }); // Invalidate for the user
+        queryClient.invalidateQueries({ queryKey: ['playlists', user!.id] });
       }
     } catch (err) {
       console.error('An unexpected error occurred during deletePlaylist:', err);
       throw err;
     }
-  }, [user, supabase, isReady, queryClient]); // Add isReady to dependencies
+  }, [user, supabase, isReady, queryClient]); // Correct dependencies
 
   const toggleLikeSong = useCallback(async (songId: string, videoId: string, likedSongIds: Set<string>) => {
     if (!checkReadiness('toggleLikeSong')) {
@@ -136,33 +135,33 @@ export function usePlaylistOperations() {
           .from('user_liked_songs')
           .delete()
           .eq('user_id', user!.id)
-          .eq('song_id', songId); // songId is already a parameter
+          .eq('song_id', songId);
 
         if (error) throw error;
 
         console.log(`Song ${songId} unliked successfully.`);
-        queryClient.invalidateQueries({ queryKey: ['userLikedSongs', user!.id] }); // Invalidate for the user
+        queryClient.invalidateQueries({ queryKey: ['userLikedSongs', user!.id] });
         return { action: 'remove', songId };
       } else {
         const { error } = await supabase
           .from('user_liked_songs')
           .insert({
             user_id: user!.id,
-            song_id: songId, // songId is already a parameter
+            song_id: songId,
             liked_at: new Date().toISOString()
           });
 
         if (error) throw error;
 
         console.log(`Song ${songId} liked successfully.`);
-        queryClient.invalidateQueries({ queryKey: ['userLikedSongs', user!.id] }); // Invalidate for the user
+        queryClient.invalidateQueries({ queryKey: ['userLikedSongs', user!.id] });
         return { action: 'add', songId };
       }
     } catch (error) {
       console.error('Error in toggleLikeSong:', error);
       throw error; // Propagate error
     }
-  }, [user, supabase, isReady, queryClient, likedSongIds]); // Removed songId from dependencies
+  }, [user, supabase, isReady, queryClient]); // Correct dependencies (no parameters from this function are in the deps array)
 
   return {
     createPlaylist,
