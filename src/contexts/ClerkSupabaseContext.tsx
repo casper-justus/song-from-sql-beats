@@ -1,7 +1,7 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useClerkSupabaseClient } from '@/hooks/useClerkSupabaseClient'; // Import the custom hook
-import { Database } from '@/integrations/supabase/types'; // Adjust this path if your Database type is elsewhere
+import { Database } from '@/integrations/supabase/types';
 
 // Define the interface for the context value
 interface ClerkSupabaseContextInterface {
@@ -12,10 +12,6 @@ interface ClerkSupabaseContextInterface {
 // Create the React Context
 const ClerkSupabaseContext = createContext<ClerkSupabaseContextInterface | undefined>(undefined);
 
-/**
- * Provides the Supabase client and its authentication readiness state to the component tree.
- * @param {ReactNode} children - The child components to be rendered within the provider's scope.
- */
 export const ClerkSupabaseProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Use the custom hook to get the Supabase client and its auth readiness state
   const { supabase, isSupabaseAuthReady } = useClerkSupabaseClient();
@@ -25,15 +21,8 @@ export const ClerkSupabaseProvider: React.FC<{ children: ReactNode }> = ({ child
     supabase,
     // The context is considered "ready" when the Supabase client instance exists
     // AND its authentication state has been synchronized with Clerk.
-    isReady: !!supabase && isSupabaseAuthReady,
+    isReady: !!supabase && isSupabaseAuthReady, // Correctly combining the checks
   };
-
-  // Optional: You can render a loading indicator or null here if the context is not yet ready.
-  // This prevents child components from trying to use the Supabase client before it's fully set up.
-  // Example:
-  // if (!contextValue.isReady) {
-  //   return <div>Loading application...</div>;
-  // }
 
   return (
     <ClerkSupabaseContext.Provider value={contextValue}>
