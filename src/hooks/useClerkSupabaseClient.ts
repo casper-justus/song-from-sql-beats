@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'; // <--- Add useRef here
+import { useState, useEffect, useMemo, useRef } from 'react'; // Corrected import
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { useSession } from '@clerk/clerk-react';
 import { Database } from '@/integrations/supabase/types';
@@ -7,7 +7,7 @@ const SUPABASE_URL = "https://dqckopgetuodqhgnhhxw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxY2tvcGdldHVvZHFoZ25oaHh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExOTM5NzYsImV4cCI6MjA2Njc2OTk3Nn0.0PJ5KWUbjI4dupIxScguEf0CrYKtN-uVpVTRxHNi54w";
 
 let _singletonSupabaseClient: SupabaseClient<Database> | null = null;
-let currentGetToken: (() => Promise<string | null>) | null = null;
+let currentGetToken: (() => Promise<string | null>) | null = null; // Global mutable reference
 
 function getSingletonSupabaseClient(getTokenFn: (() => Promise<string | null>)) {
   if (!_singletonSupabaseClient) {
@@ -20,6 +20,7 @@ function getSingletonSupabaseClient(getTokenFn: (() => Promise<string | null>)) 
           fetch: async (url, options: RequestInit = {}) => {
             console.log(`[Supabase Fetch Interceptor]: Intercepting request to ${url}`);
             try {
+              // This calls the *currently assigned* getTokenFn (which comes from currentGetToken)
               const clerkToken = await getTokenFn();
 
               const headers = new Headers(options.headers || {});
@@ -47,15 +48,17 @@ function getSingletonSupabaseClient(getTokenFn: (() => Promise<string | null>)) 
   return _singletonSupabaseClient;
 }
 
-
 export function useClerkSupabaseClient(): { supabase: SupabaseClient<Database> | null; isSupabaseAuthReady: boolean; } {
   const { session, isLoaded, getToken } = useSession();
   const [isSupabaseAuthReady, setIsSupabaseAuthReady] = useState(false);
 
+  // Effect to update the global `currentGetToken` reference whenever Clerk session state changes.
+  // This ensures the `fetch` interceptor always calls the latest `getToken` function from Clerk.
   useEffect(() => {
     console.log("[useClerkSupabaseClient useEffect]: Clerk session state changed. isLoaded:", isLoaded, "session:", session ? 'present' : 'null');
 
     const tokenFetcher = async () => {
+      // Ensure session, isLoaded, and getToken are available from Clerk before attempting to get a token.
       if (session && isLoaded && getToken) {
         try {
           const token = await getToken({ template: 'supabase' });
@@ -70,26 +73,26 @@ export function useClerkSupabaseClient(): { supabase: SupabaseClient<Database> |
       return null;
     };
 
-    currentGetToken = tokenFetcher;
-  }, [session, isLoaded, getToken]);
+    currentGetToken = tokenFetcher; // Update the global reference
+  }, [session, isLoaded, getToken]); // Dependencies for this effect
 
-  // Use a ref to hold the client to ensure it's truly a singleton across renders
+  // Use a ref to store the singleton Supabase client instance.
   const supabaseRef = useRef<SupabaseClient<Database> | null>(null);
 
-  // Initialize the client only once, and ensure it uses the latest currentGetToken.
-  // This block runs on every render, but `getSingletonSupabaseClient` itself ensures
-  // `_singletonSupabaseClient` is initialized only once.
-  // The `async () => { return currentGetToken ? currentGetToken() : null; }` ensures
-  // the interceptor closure always calls the *latest* `currentGetToken`.
-  if (!supabaseRef.current) { // Only attempt to get/set the client if it hasn't been set yet in the ref
-    console.log("[useClerkSupabaseClient]: Attempting to get/set singleton client.");
+  // Initialize the singleton client only once.
+  // The `getSingletonSupabaseClient` function itself handles the "only once" logic.
+  // The `async () => { return currentGetToken ? currentGetToken() : null; }` wrapper ensures
+  // the client's `fetch` interceptor always calls the *latest* `currentGetToken` from the global scope.
+  if (!supabaseRef.current && currentGetToken) { // Only attempt if ref is null AND currentGetToken is set
+    console.log("[useClerkSupabaseClient]: Creating or re-using singleton client via getSingletonSupabaseClient.");
     supabaseRef.current = getSingletonSupabaseClient(async () => {
       return currentGetToken ? currentGetToken() : null;
     });
   }
+  const supabase = supabaseRef.current; // Get the current client from the ref
 
-  const supabase = supabaseRef.current;
-
+  // Effect to manage the `isSupabaseAuthReady` state.
+  // It becomes true when Clerk's session is loaded AND the Supabase client instance exists.
   useEffect(() => {
     console.log("[useClerkSupabaseClient Readiness]: isLoaded:", isLoaded, "supabase available:", !!supabase);
     if (isLoaded && supabase) {
@@ -99,10 +102,8 @@ export function useClerkSupabaseClient(): { supabase: SupabaseClient<Database> |
       setIsSupabaseAuthReady(false);
       console.log("[useClerkSupabaseClient Readiness]: Supabase client or auth not yet ready.");
     }
-  }, [isLoaded, supabase]);
+  }, [isLoaded, supabase]); // Depend on Clerk's loading state and the Supabase client instance
 
-  return useMemo(() => ({
-    supabase,
-    isSupabaseAuthReady
-  }), [supabase, isSupabaseAuthReady]);
+  // Memoize the return value to prevent unnecessary re-renders of consuming components.
+  return useMemo(() => ({ supabase, isSupabaseAuthReady }), [supabase, isSupabaseAuthReady]);
 }
