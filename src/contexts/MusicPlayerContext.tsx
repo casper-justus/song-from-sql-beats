@@ -56,7 +56,7 @@ const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(und
 export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useUser();
   const { session } = useSession();
-  const { supabase } = useClerkSupabase();
+  const { supabase, isReady } = useClerkSupabase();
   const [songs, setSongs] = useState<Song[]>([]);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [queue, setQueueState] = useState<Song[]>([]);
@@ -207,7 +207,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
       return data || [];
     },
-    enabled: !!user && !!supabase,
+    enabled: !!user && !!supabase && isReady, // Defer query until Clerk and Supabase are synced
     staleTime: 5 * 60 * 1000,
   });
 
