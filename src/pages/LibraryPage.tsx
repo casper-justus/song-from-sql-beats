@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Plus, Music, Trash2, Download, Folder } from 'lucide-react';
@@ -66,30 +67,30 @@ export default function LibraryPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white min-h-screen">
-      <header className="mb-6"> {/* Reduced mb-8 to mb-6 */}
-        <h1 className="text-4xl font-bold">My Library</h1>
-        <p className="text-lg text-gray-400 mt-2">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white min-h-screen max-w-7xl">
+      <header className="mb-6">
+        <h1 className="text-3xl sm:text-4xl font-bold">My Library</h1>
+        <p className="text-base sm:text-lg text-gray-400 mt-2">
           Your personal collection of music.
         </p>
       </header>
 
       <Tabs defaultValue="playlists" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-gray-800 mb-6"> {/* Reduced mb-8 to mb-6 */}
-          <TabsTrigger value="playlists" className="text-white data-[state=active]:bg-green-600">
+        <TabsList className="grid w-full grid-cols-2 bg-gray-800 mb-6 h-10 sm:h-11">
+          <TabsTrigger value="playlists" className="text-white data-[state=active]:bg-green-600 text-sm sm:text-base">
             Playlists
           </TabsTrigger>
-          <TabsTrigger value="downloads" className="text-white data-[state=active]:bg-green-600">
+          <TabsTrigger value="downloads" className="text-white data-[state=active]:bg-green-600 text-sm sm:text-base">
             Downloads
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="playlists">
-          <div className="flex items-center justify-between mb-4"> {/* Reduced mb-6 to mb-4 */}
-            <h2 className="text-2xl font-semibold">Your Playlists</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+            <h2 className="text-xl sm:text-2xl font-semibold">Your Playlists</h2>
             <Dialog open={showCreatePlaylist} onOpenChange={setShowCreatePlaylist}>
               <DialogTrigger asChild>
-                <Button className="bg-green-600 hover:bg-green-700">
+                <Button className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Create Playlist
                 </Button>
@@ -138,22 +139,22 @@ export default function LibraryPage() {
           </div>
           
           {playlists.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {playlists.map((playlist) => (
                 <Link to={`/playlist/${playlist.id}`} key={playlist.id} className="block hover:no-underline">
                   <Card className="bg-gray-800 border-gray-700 hover:bg-gray-700/70 transition-colors h-full flex flex-col">
                     <CardHeader className="pb-3 flex-grow">
                       <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3 min-w-0">
-                          <div className="w-12 h-12 bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
-                            <Music className="w-6 h-6 text-gray-400" />
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
+                            <Music className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
                           </div>
-                          <div className="min-w-0">
-                            <CardTitle className="text-white text-lg truncate hover:text-yellow-400 transition-colors">
+                          <div className="min-w-0 flex-1">
+                            <CardTitle className="text-white text-base sm:text-lg truncate hover:text-yellow-400 transition-colors">
                               {playlist.name}
                             </CardTitle>
                             {playlist.description && (
-                              <p className="text-gray-400 text-sm truncate mt-1">{playlist.description}</p>
+                              <p className="text-gray-400 text-xs sm:text-sm truncate mt-1">{playlist.description}</p>
                             )}
                           </div>
                         </div>
@@ -190,20 +191,20 @@ export default function LibraryPage() {
         </TabsContent>
 
         <TabsContent value="downloads">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold">Download History</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+            <h2 className="text-xl sm:text-2xl font-semibold">Download History</h2>
             {downloadedTracks.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (confirm('Are you sure you want to clear your download history? This does not delete files from your computer.')) {
-                    localStorage.removeItem('downloadedSongsList');
-                    setDownloadedTracks([]);
-                  }
-                }}
-                className="text-red-500 border-red-500 hover:bg-red-500/10 hover:text-red-400"
-              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm('Are you sure you want to clear your download history? This does not delete files from your computer.')) {
+                      localStorage.removeItem('downloadedSongsList');
+                      setDownloadedTracks([]);
+                    }
+                  }}
+                  className="text-red-500 border-red-500 hover:bg-red-500/10 hover:text-red-400 w-full sm:w-auto"
+                >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Clear History
               </Button>
@@ -215,13 +216,13 @@ export default function LibraryPage() {
               {downloadedTracks.map((track, index) => (
                 <div
                   key={track.songId || index}
-                  className="p-3 rounded-lg bg-gray-800/60 border border-gray-700/50 flex items-center justify-between gap-4"
+                  className="p-3 sm:p-4 rounded-lg bg-gray-800/60 border border-gray-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Folder className="w-6 h-6 text-yellow-400 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-white truncate">{track.title}</p>
-                      <p className="text-gray-400 text-xs truncate">{track.artist}</p>
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <Folder className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-white truncate text-sm sm:text-base">{track.title}</p>
+                      <p className="text-gray-400 text-xs sm:text-sm truncate">{track.artist}</p>
                       <p className="text-gray-500 text-xs truncate">{track.fileName}</p>
                     </div>
                   </div>

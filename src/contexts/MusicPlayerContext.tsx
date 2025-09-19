@@ -44,7 +44,7 @@ interface MusicPlayerContextType {
   setShowLyricsDialog: (show: boolean) => void;
   setShowQueueDialog: (show: boolean) => void;
   toggleLikeSong: (songId: string, videoId: string) => Promise<void>;
-  createPlaylist: (name: string, description?: string) => Promise<void>;
+  createPlaylist: (name: string, description?: string) => Promise<any>;
   addSongToPlaylist: (playlistId: string, songId: string) => Promise<void>;
   removeSongFromPlaylist: (playlistId: string, songId: string) => Promise<void>;
   deletePlaylist: (playlistId: string) => Promise<void>;
@@ -338,7 +338,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                 const blob = await response.blob();
                 audioBlobCache.set(song.id, blob);
-                manageAudioBlobCache(song.id); // Manage cache size
                 console.log(`[MusicPlayerContext] playNextInQueue: Fully preloaded blob for ${song.title}. Blob cache size: ${audioBlobCache.size}`);
               } catch (blobError) {
                 console.warn(`[MusicPlayerContext] playNextInQueue: Failed to fully preload blob for ${song.title}:`, blobError);

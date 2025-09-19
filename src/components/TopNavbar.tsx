@@ -1,11 +1,9 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, Music, Search, User } from 'lucide-react';
-import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { cn } from '@/lib/utils';
 
 export function TopNavbar() {
-  const { dominantColors } = useMusicPlayer();
 
   const navItems = [
     { to: "/", icon: Home, label: "Home" },
@@ -18,10 +16,10 @@ export function TopNavbar() {
   const inactiveClassName = "text-white/60 hover:bg-white/10 hover:text-white";
 
   return (
-    <div className="fixed top-8 left-1/2 -translate-x-1/2 z-50">
+    <div className="fixed top-4 sm:top-8 left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-md">
       {/* Mobile: Pill shape */}
       <div
-        className="md:hidden flex items-center gap-2 p-2 rounded-full border border-white/10 shadow-lg transition-colors duration-500"
+        className="md:hidden flex items-center justify-center gap-1 p-2 rounded-full border border-white/10 shadow-lg transition-colors duration-500"
         style={{
           backgroundColor: `rgba(0, 0, 0, 0.25)`,
           backdropFilter: 'blur(16px)',
@@ -33,11 +31,11 @@ export function TopNavbar() {
             key={item.to}
             to={item.to}
             className={({ isActive }) => cn(
-              "w-12 h-12 flex items-center justify-center rounded-full transition-all",
+              "w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full transition-all",
               isActive ? activeClassName : inactiveClassName
             )}
           >
-            <item.icon className="w-6 h-6" />
+            <item.icon className="w-5 h-5 sm:w-6 sm:h-6" />
           </NavLink>
         ))}
       </div>

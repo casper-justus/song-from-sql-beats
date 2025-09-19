@@ -189,11 +189,110 @@
   }
 }
 
-/* Spotify-like focus styles */
-.spotify-green {
-  color: #1DB954;
+/* Responsive utilities and improvements */
+@layer base {
+  /* Ensure containers are responsive */
+  .container {
+    @apply w-full mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Responsive text sizes */
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl;
+  }
+  
+  .text-responsive-2xl {
+    @apply text-2xl sm:text-3xl;
+  }
+  
+  .text-responsive-3xl {
+    @apply text-3xl sm:text-4xl;
+  }
+  
+  /* Responsive spacing */
+  .space-responsive-x {
+    @apply space-x-2 sm:space-x-4;
+  }
+  
+  .space-responsive-y {
+    @apply space-y-2 sm:space-y-4;
+  }
+  
+  /* Responsive padding */
+  .p-responsive {
+    @apply p-4 sm:p-6 lg:p-8;
+  }
+  
+  .px-responsive {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  .py-responsive {
+    @apply py-4 sm:py-6 lg:py-8;
+  }
+  
+  /* Responsive margins */
+  .m-responsive {
+    @apply m-4 sm:m-6 lg:m-8;
+  }
+  
+  .mx-responsive {
+    @apply mx-4 sm:mx-6 lg:mx-8;
+  }
+  
+  .my-responsive {
+    @apply my-4 sm:my-6 lg:my-8;
+  }
+  
+  /* Responsive grid utilities */
+  .grid-responsive-cards {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
+  }
+  
+  .grid-responsive-2 {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6;
+  }
+  
+  .grid-responsive-3 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
+  }
+  
+  /* Mobile-first approach for better performance */
+  .mobile-first-container {
+    @apply max-w-sm mx-auto sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl 2xl:max-w-4xl;
+  }
+  
+  .mobile-first-full {
+    @apply max-w-full sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl mx-auto;
+  }
 }
 
-.focus-spotify {
-  @apply focus:ring-2 focus:ring-green-500 focus:border-green-500;
+/* Responsive improvements for existing elements */
+@layer components {
+  /* Responsive cards */
+  .card-responsive {
+    @apply p-4 sm:p-6 rounded-lg sm:rounded-xl;
+  }
+  
+  /* Responsive buttons */
+  .btn-responsive {
+    @apply px-4 py-2 text-sm sm:px-6 sm:py-3 sm:text-base;
+  }
+  
+  /* Responsive inputs */
+  .input-responsive {
+    @apply px-3 py-2 text-sm sm:px-4 sm:py-3 sm:text-base;
+  }
 }

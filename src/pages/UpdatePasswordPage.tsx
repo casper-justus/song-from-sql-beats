@@ -6,18 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"; // Removed CardDescription
 import { useToast } from '@/components/ui/use-toast';
-
-// Example: Spotify-like green color
-const spotifyGreen = "#1DB954";
-
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { updateUserPassword } from '@/lib/auth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"; // Removed CardDescription
-import { useToast } from '@/components/ui/use-toast';
 import { DynamicBackground } from '@/components/DynamicBackground';
 
 // Example: Spotify-like green color

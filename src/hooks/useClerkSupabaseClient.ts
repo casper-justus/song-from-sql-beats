@@ -49,7 +49,7 @@ function getSingletonSupabaseClient(getTokenFn: (() => Promise<string | null>)) 
 }
 
 export function useClerkSupabaseClient(): { supabase: SupabaseClient<Database> | null; isSupabaseAuthReady: boolean; } {
-  const { session, isLoaded, getToken } = useSession();
+  const { session, isLoaded } = useSession();
   const [isSupabaseAuthReady, setIsSupabaseAuthReady] = useState(false);
 
   // Effect to update the global `currentGetToken` reference whenever Clerk session state changes.
@@ -58,10 +58,10 @@ export function useClerkSupabaseClient(): { supabase: SupabaseClient<Database> |
     console.log("[useClerkSupabaseClient useEffect]: Clerk session state changed. isLoaded:", isLoaded, "session:", session ? 'present' : 'null');
 
     const tokenFetcher = async () => {
-      // Ensure session, isLoaded, and getToken are available from Clerk before attempting to get a token.
-      if (session && isLoaded && getToken) {
+      // Ensure session, isLoaded are available from Clerk before attempting to get a token.
+      if (session && isLoaded) {
         try {
-          const token = await getToken({ template: 'supabase' });
+          const token = await session.getToken({ template: 'supabase' });
           console.log(`[useClerkSupabaseClient]: getToken called. Token length: ${token ? token.length : 'null'}`);
           return token;
         } catch (error) {
@@ -69,12 +69,12 @@ export function useClerkSupabaseClient(): { supabase: SupabaseClient<Database> |
           return null;
         }
       }
-      console.log("[useClerkSupabaseClient]: Clerk session not ready or getToken not available. Returning null token.");
+      console.log("[useClerkSupabaseClient]: Clerk session not ready. Returning null token.");
       return null;
     };
 
     currentGetToken = tokenFetcher; // Update the global reference
-  }, [session, isLoaded, getToken]); // Dependencies for this effect
+  }, [session, isLoaded]); // Dependencies for this effect
 
   // Use a ref to store the singleton Supabase client instance.
   const supabaseRef = useRef<SupabaseClient<Database> | null>(null);

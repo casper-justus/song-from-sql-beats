@@ -44,7 +44,7 @@ const AppContent = () => {
       <DynamicBackground />
       {/* Conditionally render TopNavbar based on isSignedIn */}
       {isSignedIn && <TopNavbar />}
-      <div className="relative z-10 pt-24 pb-40">
+      <div className="relative z-10 pt-20 sm:pt-24 pb-32 sm:pb-40 px-4 sm:px-6 lg:px-8">
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />
