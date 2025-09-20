@@ -5,13 +5,16 @@ import { Database, Tables } from '@/integrations/supabase/types';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { usePlaylistOperations } from '@/hooks/usePlaylistOperations';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { toast } from '@/hooks/use-toast';
 import { resolveMediaUrl, startBackgroundPrefetch, preloadQueue, fetchLyricsContent, audioBlobCache } from '@/utils/mediaCache'; // Added audioBlobCache
 import { saveUserPreferences, loadUserPreferences, savePlaybackState, loadPlaybackState } from '@/utils/playerStorage';
 
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
+type Profile = Tables<'profiles'>;
 
 interface MusicPlayerContextType {
+  profile: Profile | null;
   songs: Song[];
   currentSong: Song | null;
   queue: Song[];
@@ -74,7 +77,6 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [isInitialized, setIsInitialized] = useState(false);
   const queryClient = useQueryClient();
   const currentObjectUrlRef = React.useRef<string | null>(null); // To store and revoke blob URLs
-  const restoredTimeRef = useRef<number | null>(null); // Ref to hold restored time
 
   // Enhanced URL resolution with mobile optimization
   const resolveMediaUrlWithSession = useCallback(async (
@@ -142,72 +144,28 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     () => playNext(true) // onEnded callback
   );
 
-  // Effect to LOAD a new song when currentSong changes
+  // useEffect to load and play audio, now that all functions are defined.
   useEffect(() => {
-    const loadSong = async () => {
-      if (!currentSong) return;
+    const loadAndPlay = async () => {
+        if (!currentSong) return;
+        if(audioRefA.current) audioRefA.current.pause();
+        if(audioRefB.current) audioRefB.current.pause();
 
-      // Pause both players to be safe
-      if (audioRefA.current) audioRefA.current.pause();
-      if (audioRefB.current) audioRefB.current.pause();
-
-      // Load the new current song into the active player. This calls .load() and resets time.
-      await preloadSong(currentSong, activePlayerRef);
-
-      // After loading, check if there's a restored time to apply.
-      if (restoredTimeRef.current !== null && activePlayerRef.current) {
-        // The 'loadedmetadata' event ensures we can set currentTime.
-        activePlayerRef.current.onloadedmetadata = () => {
-          if (activePlayerRef.current && restoredTimeRef.current !== null) {
-            console.log(`[Playback Restore] Applying restored time: ${restoredTimeRef.current}s`);
-            activePlayerRef.current.currentTime = restoredTimeRef.current;
-            setCurrentTime(restoredTimeRef.current);
-            restoredTimeRef.current = null; // Clear the ref so it's only used once
-
-            // If autoplay was intended, start it now.
-            if (isPlaying) {
-              activePlayerRef.current.play().catch(e => console.error("Error in restored autoplay", e));
-            }
-            // Clean up the event listener
-            activePlayerRef.current.onloadedmetadata = null;
-          }
-        };
-      } else if (isPlaying && activePlayerRef.current) {
-        // If not restoring, but autoplaying a new track (e.g. 'next' button)
-        try {
-          await activePlayerRef.current.play();
-        } catch (e) {
-          console.error("Error auto-playing new song:", e);
-          setIsPlaying(false);
-        }
-      }
-
-      // Preload the next song in the queue into the inactive player
-      const nextSong = queue[(currentQueueIndex + 1) % queue.length];
-      if (nextSong && nextSong.id !== currentSong.id) {
+        await preloadSong(currentSong, activePlayerRef);
+        const nextSong = queue[(currentQueueIndex + 1) % queue.length];
         await preloadSong(nextSong, inactivePlayerRef);
-      }
-    };
-    loadSong();
-  }, [currentSong]); // This effect correctly depends only on the song changing
 
-  // Effect to PLAY or PAUSE the active player when isPlaying changes
-  useEffect(() => {
-    const audio = activePlayerRef.current;
-    if (!audio || !currentSong) return;
-
-    if (isPlaying) {
-      // Don't reload, just play
-      audio.play().catch(error => {
-        if (error.name !== 'AbortError') {
-          console.error("Error playing audio:", error);
-          setIsPlaying(false); // Reset state on unexpected error
+        if (isPlaying && activePlayerRef.current) {
+            try {
+                await activePlayerRef.current.play();
+            } catch (e) {
+                console.error("Error playing audio:", e);
+                setIsPlaying(false);
+            }
         }
-      });
-    } else {
-      audio.pause();
-    }
-  }, [isPlaying, activePlayerRef]); // <-- NEW EFFECT
+    };
+    loadAndPlay();
+  }, [currentSong, isPlaying, activePlayerRef, inactivePlayerRef, preloadSong, queue, currentQueueIndex]);
 
   // Fetch songs with mobile-optimized caching
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
@@ -237,14 +195,38 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     refetchOnReconnect: 'always' // Important for mobile network switches
   });
 
+  const { data: profile = null } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!supabase || !user) return null;
+
+      const { data, error } = await supabase.rpc('ensure_profile_exists', {
+        clerk_id: user.id,
+        full_name: user.fullName,
+        username: user.username,
+        avatar_url: user.imageUrl,
+      });
+
+      if (error) {
+        console.error("Error ensuring profile exists:", error);
+        throw error;
+      }
+
+      return data && data.length > 0 ? data[0] : null;
+    },
+    enabled: !!user && !!supabase,
+    staleTime: Infinity,
+  });
+
   // Fetch playlists
   const { data: fetchedPlaylists = [] } = useQuery({
-    queryKey: ['playlists', user?.id],
+    queryKey: ['playlists', profile?.id],
     queryFn: async () => {
-      if (!user || !supabase) return [];
+      if (!profile || !supabase) return [];
       const { data, error } = await supabase
         .from('playlists')
         .select('*')
+        // RLS handles filtering to the current user
         .order('created_at', { ascending: false });
       if (error) {
         console.error("Error fetching playlists:", error);
@@ -252,7 +234,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
       return data || [];
     },
-    enabled: !!user && !!supabase,
+    enabled: !!profile,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -296,20 +278,20 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Fetch liked songs
   useEffect(() => {
     const fetchLiked = async () => {
-      if (!user || !supabase) {
+      if (!profile || !supabase) {
         setLikedSongIds(new Set());
         return;
       }
       const { data, error } = await supabase
         .from('user_liked_songs')
         .select('song_id')
-        .eq('user_id', user.id);
+        .eq('user_id', profile.id); // Use the UUID from the profile
       if (error) console.error('Error fetching liked songs:', error);
       else setLikedSongIds(new Set(data.map(like => like.song_id)));
     };
 
     fetchLiked();
-  }, [user, supabase]);
+  }, [profile, supabase]);
 
   const isCurrentSongLiked = currentSong ? likedSongIds.has(currentSong.id) : false;
 
@@ -330,7 +312,23 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const addToQueue = useCallback((song: Song) => {
-    setQueueState(prev => [...prev, song]);
+    setQueueState(prev => {
+      // Prevent duplicates
+      if (prev.find(s => s.id === song.id)) {
+        toast({
+          title: "Already in queue",
+          description: `"${song.title}" is already in the queue.`,
+          variant: "destructive",
+        });
+        return prev;
+      }
+      toast({
+        title: "Added to queue",
+        description: `"${song.title}" by ${song.artist}`,
+      });
+      return [...prev, song];
+    });
+
     // Prefetch the newly added song
     const audioFileKey = song.storage_path || song.file_url;
     if (audioFileKey) {
@@ -418,31 +416,33 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [currentQueueIndex]);
 
 
-  // Load user preferences and restore playback state on initial load
+  // Load user preferences and restore playback state
   useEffect(() => {
     if (!isInitialized && songs.length > 0) {
       const preferences = loadUserPreferences();
       setVolumeState(preferences.volume);
       
+      // Restore last playback state
       const playbackState = loadPlaybackState();
       if (playbackState?.songId) {
         const lastSong = songs.find(song => song.id === playbackState.songId);
         if (lastSong) {
-          console.log(`[Playback Restore] Found last played song: ${lastSong.title} at ${Math.floor(playbackState.currentTime)}s. Queueing for restore.`);
-          // Set the ref. The loadSong useEffect will handle applying this time.
-          restoredTimeRef.current = playbackState.currentTime;
-
-          // Set the song and queue, but don't autoplay here.
-          // The isPlaying state should also be restored if saved, or default to false.
+          console.log(`[Playback Restore] Restoring last played song: ${lastSong.title} at ${Math.floor(playbackState.currentTime)}s`);
+          setCurrentSong(lastSong);
           setQueueState([lastSong]);
           setCurrentQueueIndex(0);
-          setCurrentSong(lastSong); // This will trigger the loadSong effect
-          setIsPlaying(false); // Start in a paused state
+          // Set the time after the song loads
+          setTimeout(() => {
+            if (activePlayerRef.current) {
+              activePlayerRef.current.currentTime = playbackState.currentTime;
+              setCurrentTime(playbackState.currentTime);
+            }
+          }, 1000);
         }
       }
       setIsInitialized(true);
     }
-  }, [songs, isInitialized]); // Removed activePlayerRef dependency
+  }, [songs, isInitialized, activePlayerRef]);
 
   // Save playback state periodically and on song changes
   useEffect(() => {
@@ -499,19 +499,22 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [queue, playFromQueue]);
 
   const togglePlay = useCallback(() => {
-    if (!currentSong) return;
+    const audio = activePlayerRef.current;
+    if (!audio || !currentSong) return;
 
-    // If we're trying to play but the audio element has no source,
-    // it means we need to load the current song first.
-    // This can happen if the page was loaded with a song but nothing has been played yet.
-    if (!isPlaying && activePlayerRef.current && !activePlayerRef.current.src) {
-      playFromQueue(currentQueueIndex, true); // This will load and play
-      return;
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+    } else {
+      if (audio.src) {
+        audio.play().then(() => setIsPlaying(true)).catch(e => console.error("Error toggling play:", e));
+      } else {
+        // If no src, selectSong should be used first.
+        // Or re-load the current song.
+        playFromQueue(currentQueueIndex);
+      }
     }
-
-    // Otherwise, just toggle the state. The new useEffect handles the rest.
-    setIsPlaying(prevIsPlaying => !prevIsPlaying);
-  }, [currentSong, isPlaying, activePlayerRef, playFromQueue, currentQueueIndex]);
+  }, [isPlaying, currentSong, activePlayerRef, playFromQueue, currentQueueIndex]);
 
   const setVolumeLevel = useCallback((level: number) => {
     const newVolume = level / 100;
@@ -522,6 +525,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   return (
     <div className="pb-24">
       <MusicPlayerContext.Provider value={{
+        profile,
         songs,
         currentSong,
         queue,

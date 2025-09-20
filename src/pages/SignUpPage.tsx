@@ -16,14 +16,14 @@ export default function SignUpPage() {
 
   if (!isLoaded || isSignedIn) {
     return (
-      <div className="flex items-center justify-center min-h-screen charcoal-bg">
+      <div className="flex items-center justify-center min-h-screen">
         <p className="text-white">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 charcoal-bg wave-bg">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 wave-bg">
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold text-white">Music Stream</h1>
       </div>
