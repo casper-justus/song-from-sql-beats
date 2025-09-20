@@ -133,97 +133,119 @@ export function BottomNavbar() {
     return null;
   }
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 h-24 bg-black/10 backdrop-blur-xl border-t border-white/10 flex items-center justify-between px-4 z-50"
-    >
-        <canvas
-            ref={canvasRef}
-            width={window.innerWidth}
-            height={150} // h-24
-            className="absolute top-0 left-0 w-full -translate-y-full opacity-75"
-        />
-      {/* Progress Bar at the top */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-white/10">
+    <div className="fixed bottom-0 left-0 right-0 z-50">
+      {/* Enhanced Progress Bar */}
+      <div className="relative h-1 bg-black/20 backdrop-blur-sm">
         <div
-          className="h-full bg-white transition-all duration-200"
+          className="absolute top-0 left-0 h-full bg-gradient-to-r from-white via-white/90 to-white/80 transition-all duration-200 shadow-sm"
           style={{ width: `${progressPercentage}%` }}
         />
-      </div>
-
-      {/* Album Art & Info */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <ResolvedCoverImage
-          imageKey={currentSong.cover_url}
-          videoId={currentSong.video_id}
-          altText={currentSong.title || 'Album cover'}
-          className="w-14 h-14 rounded-md object-cover shadow-lg"
+        {/* Progress indicator dot */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-all duration-200"
+          style={{ left: `${progressPercentage}%`, transform: 'translate(-50%, -50%)' }}
         />
-        <div className="flex flex-col min-w-0">
-          <p className="font-bold text-white truncate">
-            {currentSong.title || "Unknown Title"}
-          </p>
-          <p className="text-sm text-white/70 truncate">
-            {currentSong.artist || "Unknown Artist"}
-          </p>
+      </div>
+      
+      {/* Main Player Bar */}
+      <div className="h-20 bg-black/20 backdrop-blur-xl border-t border-white/5 flex items-center justify-between px-4">
+        {/* Audio Visualizer Canvas */}
+        <canvas
+          ref={canvasRef}
+          width={window.innerWidth}
+          height={120}
+          className="absolute top-0 left-0 w-full -translate-y-full opacity-60 pointer-events-none"
+        />
+
+        {/* Left: Album Art & Info */}
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <ResolvedCoverImage
+            imageKey={currentSong.cover_url}
+            videoId={currentSong.video_id}
+            altText={currentSong.title || 'Album cover'}
+            className="w-12 h-12 rounded-lg object-cover shadow-xl ring-2 ring-white/10"
+          />
+          <div className="flex flex-col min-w-0">
+            <p className="font-semibold text-white text-sm truncate">
+              {currentSong.title || "Unknown Title"}
+            </p>
+            <p className="text-xs text-white/60 truncate">
+              {currentSong.artist || "Unknown Artist"}
+            </p>
+          </div>
+          {/* Time display on mobile */}
+          <div className="hidden xs:flex text-xs text-white/50 ml-2">
+            <span>{formatTime(currentTime)}</span>
+            <span className="mx-1">/</span>
+            <span>{formatTime(duration)}</span>
+          </div>
         </div>
-      </div>
 
-      {/* Controls */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={playPrevious}
-          className="text-white/80 hover:bg-white/20 rounded-full w-10 h-10"
-        >
-          <SkipBack className="w-5 h-5" />
-        </Button>
+        {/* Center: Controls */}
+        <div className="flex items-center gap-3 flex-shrink-0 mx-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={playPrevious}
+            className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-9 h-9 transition-all duration-200"
+          >
+            <SkipBack className="w-4 h-4" />
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={togglePlay}
-          className="text-white bg-white/20 hover:bg-white/30 rounded-full w-14 h-14"
-        >
-          {isPlaying ? (
-            <Pause className="w-6 h-6" />
-          ) : (
-            <Play className="w-6 h-6" />
-          )}
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={togglePlay}
+            className="text-white bg-white/15 hover:bg-white/25 rounded-full w-12 h-12 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+          >
+            {isPlaying ? (
+              <Pause className="w-5 h-5" />
+            ) : (
+              <Play className="w-5 h-5 ml-0.5" />
+            )}
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={playNext}
-          className="text-white/80 hover:bg-white/20 rounded-full w-10 h-10"
-        >
-          <SkipForward className="w-5 h-5" />
-        </Button>
-      </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={playNext}
+            className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-9 h-9 transition-all duration-200"
+          >
+            <SkipForward className="w-4 h-4" />
+          </Button>
+        </div>
 
-      {/* Right side actions - Spaced out for a cleaner look */}
-      <div className="flex items-center gap-4 flex-1 justify-end">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleLikeClick}
-          className={cn(
-            "text-white/70 hover:text-white",
-            isCurrentSongLiked && "text-red-500"
-          )}
-        >
-          <Heart className={cn("w-5 h-5", isCurrentSongLiked && "fill-current")} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setShowQueueDialog(true)}
-          className="text-white/70 hover:text-white"
-        >
-          <List className="w-5 h-5" />
-        </Button>
+        {/* Right: Actions */}
+        <div className="flex items-center gap-3 flex-1 justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLikeClick}
+            className={cn(
+              "rounded-full w-9 h-9 transition-all duration-200",
+              isCurrentSongLiked 
+                ? "text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20" 
+                : "text-white/60 hover:text-white hover:bg-white/10"
+            )}
+          >
+            <Heart className={cn("w-4 h-4", isCurrentSongLiked && "fill-current")} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowQueueDialog(true)}
+            className="text-white/60 hover:text-white hover:bg-white/10 rounded-full w-9 h-9 transition-all duration-200"
+          >
+            <List className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

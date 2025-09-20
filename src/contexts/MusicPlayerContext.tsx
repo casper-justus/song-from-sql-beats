@@ -6,7 +6,7 @@ import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { usePlaylistOperations } from '@/hooks/usePlaylistOperations';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { resolveMediaUrl, startBackgroundPrefetch, preloadQueue, fetchLyricsContent, audioBlobCache } from '@/utils/mediaCache'; // Added audioBlobCache
-import { saveUserPreferences, loadUserPreferences } from '@/utils/playerStorage';
+import { saveUserPreferences, loadUserPreferences, savePlaybackState, loadPlaybackState } from '@/utils/playerStorage';
 
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
@@ -373,11 +373,42 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [currentQueueIndex]);
 
 
-  // Load user preferences
+  // Load user preferences and restore playback state
   useEffect(() => {
-    const preferences = loadUserPreferences();
-    setVolumeState(preferences.volume);
-  }, []);
+    if (!isInitialized && songs.length > 0) {
+      const preferences = loadUserPreferences();
+      setVolumeState(preferences.volume);
+      
+      // Restore last playback state
+      const playbackState = loadPlaybackState();
+      if (playbackState?.songId) {
+        const lastSong = songs.find(song => song.id === playbackState.songId);
+        if (lastSong) {
+          console.log(`[Playback Restore] Restoring last played song: ${lastSong.title} at ${Math.floor(playbackState.currentTime)}s`);
+          setCurrentSong(lastSong);
+          setQueueState([lastSong]);
+          setCurrentQueueIndex(0);
+          // Set the time after the song loads
+          setTimeout(() => {
+            if (activePlayerRef.current) {
+              activePlayerRef.current.currentTime = playbackState.currentTime;
+              setCurrentTime(playbackState.currentTime);
+            }
+          }, 1000);
+        }
+      }
+      setIsInitialized(true);
+    }
+  }, [songs, isInitialized, activePlayerRef]);
+
+  // Save playback state periodically and on song changes
+  useEffect(() => {
+    if (currentSong && currentTime > 0 && duration > 0) {
+      // Debounce saving every 5 seconds to avoid too many localStorage writes
+      const timeInterval = Math.floor(currentTime / 5) * 5;
+      savePlaybackState(currentSong.id, currentTime, duration);
+    }
+  }, [currentSong?.id, Math.floor(currentTime / 5), duration]);
 
   // Update volume
   useEffect(() => {
@@ -449,49 +480,51 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [setVolumeState]);
 
   return (
-    <MusicPlayerContext.Provider value={{
-      songs,
-      currentSong,
-      queue,
-      currentQueueIndex,
-      isPlaying,
-      currentTime,
-      duration,
-      volume: volume * 100,
-      isLoadingSongs,
-      lyrics,
-      showLyricsDialog,
-      showQueueDialog,
-      isCurrentSongLiked,
-      likedSongIds,
-      playlists,
-      preloadProgress,
-      togglePlay,
-      playNext,
-      playPrevious,
-      selectSong,
-      playFromQueue,
-      setQueue,
-      addToQueue,
-      playNextInQueue,
-      removeFromQueue,
-      reorderQueueItem,
-      clearQueue,
-      seek,
-      setVolumeLevel,
-      setShowLyricsDialog,
-      setShowQueueDialog,
-      toggleLikeSong,
-      createPlaylist: playlistOps.createPlaylist,
-      addSongToPlaylist: playlistOps.addSongToPlaylist,
-      removeSongFromPlaylist: playlistOps.removeSongFromPlaylist,
-      deletePlaylist: playlistOps.deletePlaylist,
-      activePlayerRef,
-    }}>
-      {children}
-      <audio ref={audioRefA} preload="auto" crossOrigin="anonymous" />
-      <audio ref={audioRefB} preload="auto" crossOrigin="anonymous" />
-    </MusicPlayerContext.Provider>
+    <div className="pb-24">
+      <MusicPlayerContext.Provider value={{
+        songs,
+        currentSong,
+        queue,
+        currentQueueIndex,
+        isPlaying,
+        currentTime,
+        duration,
+        volume: volume * 100,
+        isLoadingSongs,
+        lyrics,
+        showLyricsDialog,
+        showQueueDialog,
+        isCurrentSongLiked,
+        likedSongIds,
+        playlists,
+        preloadProgress,
+        togglePlay,
+        playNext,
+        playPrevious,
+        selectSong,
+        playFromQueue,
+        setQueue,
+        addToQueue,
+        playNextInQueue,
+        removeFromQueue,
+        reorderQueueItem,
+        clearQueue,
+        seek,
+        setVolumeLevel,
+        setShowLyricsDialog,
+        setShowQueueDialog,
+        toggleLikeSong,
+        createPlaylist: playlistOps.createPlaylist,
+        addSongToPlaylist: playlistOps.addSongToPlaylist,
+        removeSongFromPlaylist: playlistOps.removeSongFromPlaylist,
+        deletePlaylist: playlistOps.deletePlaylist,
+        activePlayerRef,
+      }}>
+        {children}
+        <audio ref={audioRefA} preload="auto" crossOrigin="anonymous" />
+        <audio ref={audioRefB} preload="auto" crossOrigin="anonymous" />
+      </MusicPlayerContext.Provider>
+    </div>
   );
 };
 
