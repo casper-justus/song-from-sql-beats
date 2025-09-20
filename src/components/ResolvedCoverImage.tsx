@@ -30,15 +30,26 @@ function getYouTubeThumbnail(videoId: string, quality: 'default' | 'medium' | 'h
 
 /**
  * Extracts the R2 object key from a full Cloudflare R2 public URL.
+ * This is now more robust to handle different URL formats.
  */
 function extractR2KeyFromUrl(fullR2Url: string): string | null {
   try {
-    const url = new URL(fullR2Url);
-    let path = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
-    return decodeURIComponent(path);
+    // Check if the input is a full URL or just a key-like path
+    if (fullR2Url.startsWith('http')) {
+      const url = new URL(fullR2Url);
+      // The object key is the part of the path after the bucket's root.
+      // E.g., https://<...>.r2.cloudflarestorage.com/music/artist/album/folder.jpg -> music/artist/album/folder.jpg
+      let path = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
+      return decodeURIComponent(path);
+    } else {
+      // It's likely already a key, so just return it after decoding just in case
+      return decodeURIComponent(fullR2Url);
+    }
   } catch (error) {
     console.error("Failed to parse R2 URL for key extraction:", fullR2Url, error);
-    return null;
+    // If parsing fails, it might be a malformed URL or just a key.
+    // Let's assume it's a key and return it.
+    return fullR2Url;
   }
 }
 
@@ -106,21 +117,20 @@ const ResolvedCoverImage: React.FC<ResolvedCoverImageProps> = ({
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Image fetch error:', response.status, errorText);
-          throw new Error(`Failed to resolve image URL: ${response.status}`);
+          throw new Error(`Worker request failed with status ${response.status}: ${errorText}`);
         }
 
         const data = await response.json();
         if (data && data.signedUrl) {
-          // Cache the resolved URL globally
           globalImageCache.set(imageKey, data.signedUrl);
           setResolvedSrc(data.signedUrl);
         } else {
-          throw new Error("Signed URL not found in response");
+          throw new Error("Signed URL not present in worker response");
         }
       } catch (err: any) {
-        console.error("Error resolving image URL for key:", imageKey, err);
+        console.error("Error resolving image URL for key:", imageKey, err.message);
         setHasError(true);
+        // CRITICAL FIX: Explicitly set to placeholder on ANY error in the process.
         setResolvedSrc(placeholderSrc);
       } finally {
         setIsLoading(false);

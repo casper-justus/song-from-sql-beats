@@ -383,7 +383,19 @@ async function fetchDirectLrcFile(lyricsUrl: string, session: any): Promise<stri
   }
 
   try {
-    const resolvedLyricsUrl = await resolveMediaUrl(lyricsUrl, session, false, 'normal');
+    // FIX: Sanitize the lyrics URL to prevent malformed keys.
+    // If lyricsUrl is a full URL, extract the path. Otherwise, use as is.
+    let lyricsKey = lyricsUrl;
+    if (lyricsUrl.startsWith('http')) {
+        try {
+            const url = new URL(lyricsUrl);
+            lyricsKey = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
+        } catch (e) {
+            console.warn(`Could not parse lyrics URL, using raw value: ${lyricsUrl}`);
+        }
+    }
+
+    const resolvedLyricsUrl = await resolveMediaUrl(lyricsKey, session, false, 'normal');
     if (!resolvedLyricsUrl) {
       throw new Error("Could not resolve lyrics URL.");
     }

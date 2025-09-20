@@ -33,7 +33,7 @@ export function QueueDialog() {
 
   return (
     <Dialog open={showQueueDialog} onOpenChange={setShowQueueDialog}>
-      <DialogContent className="max-w-2xl max-h-[80vh] bg-gray-800 text-white border-gray-700 flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[80vh] bg-gray-800 text-white border-gray-700 flex flex-col" aria-describedby="queue-description">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Queue ({queue.length} songs)</span>
@@ -48,6 +48,7 @@ export function QueueDialog() {
               </Button>
             )}
           </DialogTitle>
+          <p id="queue-description" className="sr-only">A list of songs that will be played next. You can drag and drop to reorder.</p>
         </DialogHeader>
         
         <DragDropContext onDragEnd={onDragEnd}>
