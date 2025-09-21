@@ -1,8 +1,17 @@
 
-import React, { useState } from 'react';
-import { Play, Pause, MoreVertical, Trash2 } from 'lucide-react';
+import React from 'react';
+import { Play, Pause, MoreVertical, Trash2, ListPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownSub,
+  DropdownSubContent,
+  DropdownSubTrigger,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Tables } from '@/integrations/supabase/types';
 import ResolvedCoverImage from './ResolvedCoverImage';
@@ -28,7 +37,9 @@ export function PlaylistTrackList({
     isPlaying, 
     selectSong, 
     addToQueue,
-    setQueue 
+    setQueue,
+    playlists,
+    addSongToPlaylist
   } = useMusicPlayer();
 
   const handlePlaySong = (song: Song) => {
@@ -153,21 +164,48 @@ export function PlaylistTrackList({
                   <MoreVertical className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-gray-800 border-gray-700">
+              <DropdownMenuContent className="bg-gray-800 border-gray-700 text-white">
                 <DropdownMenuItem
                   onClick={() => handleAddToQueue(song)}
-                  className="text-white hover:bg-gray-700"
+                  className="hover:bg-gray-700 cursor-pointer"
                 >
+                  <ListPlus className="w-4 h-4 mr-2" />
                   Add to Queue
                 </DropdownMenuItem>
+
+                <DropdownSub>
+                  <DropdownSubTrigger className="hover:bg-gray-700 cursor-pointer">
+                    <ListPlus className="w-4 h-4 mr-2" />
+                    Add to Playlist
+                  </DropdownSubTrigger>
+                  <DropdownSubContent className="bg-gray-800 border-gray-700 text-white">
+                    {playlists.length > 0 ? (
+                      playlists.map(playlist => (
+                        <DropdownMenuItem
+                          key={playlist.id}
+                          onClick={() => addSongToPlaylist(playlist.id, song.id)}
+                          className="hover:bg-gray-700 cursor-pointer"
+                        >
+                          {playlist.name}
+                        </DropdownMenuItem>
+                      ))
+                    ) : (
+                      <DropdownMenuItem disabled>No playlists found</DropdownMenuItem>
+                    )}
+                  </DropdownSubContent>
+                </DropdownSub>
+
                 {showRemoveOption && (
-                  <DropdownMenuItem
-                    onClick={() => handleRemoveFromPlaylist(song.id)}
-                    className="text-red-400 hover:bg-gray-700 hover:text-red-300"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Remove from Playlist
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuSeparator className="bg-gray-700" />
+                    <DropdownMenuItem
+                      onClick={() => handleRemoveFromPlaylist(song.id)}
+                      className="text-red-400 hover:bg-red-400/20 hover:text-red-300 focus:bg-red-400/20 focus:text-red-300"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Remove from Playlist
+                    </DropdownMenuItem>
+                  </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
