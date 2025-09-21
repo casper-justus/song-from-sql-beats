@@ -24,20 +24,21 @@ const PlaylistDetailPage = () => {
   const { user } = useUser();
   const { supabase } = useClerkSupabase();
   const {
+    profile, // <-- Get profile
     setQueue,
     currentSong,
     isPlaying,
     addToQueue,
     playNextInQueue,
-    removeSongFromPlaylist: removeSongFromPlaylistContext
+    removeSongFromPlaylist: removeSongFromPlaylistContext,
+    playlists, // <-- Get playlists for the sub-menu
+    addSongToPlaylist // <-- Get the action
   } = useMusicPlayer();
-  // Removed: const [playlistDetails, setPlaylistDetails] = useState<Playlist | null>(null);
 
   const { data, isLoading, error } = useQuery<PlaylistPageData>({
-    queryKey: ['playlistPageData', playlistId, user?.id], // Changed queryKey to reflect combined data
+    queryKey: ['playlistPageData', playlistId, profile?.id], // Depend on profile
     queryFn: async () => {
-      if (!playlistId || !user || !supabase) {
-        // Ensure a consistent return type even if conditions aren't met
+      if (!playlistId || !profile || !supabase) { // Check for profile
         return { playlistDetails: null, playlistSongs: [] };
       }
 
@@ -46,7 +47,7 @@ const PlaylistDetailPage = () => {
           .from('playlists')
           .select('*')
           .eq('id', playlistId)
-          .eq('user_id', user.id)
+          .eq('user_id', profile.id) // <-- Use profile.id (uuid)
           .single(),
         supabase
           .from('playlist_songs')
@@ -239,6 +240,23 @@ const PlaylistDetailPage = () => {
                         >
                           <ListPlus className="w-4 h-4 mr-2" /> Add to Queue
                         </DropdownMenuItem>
+                        <DropdownSub>
+                          <DropdownSubTrigger className="hover:bg-gray-700 cursor-pointer">
+                            <ListPlus className="w-4 h-4 mr-2" />
+                            Add to Playlist
+                          </DropdownSubTrigger>
+                          <DropdownSubContent className="bg-gray-800 border-gray-700 text-white">
+                            {playlists.map(playlist => (
+                              <DropdownMenuItem
+                                key={playlist.id}
+                                onClick={() => addSongToPlaylist(playlist.id, song.id)}
+                                className="hover:bg-gray-700 cursor-pointer"
+                              >
+                                {playlist.name}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownSubContent>
+                        </DropdownSub>
                         <DropdownMenuItem
                           onClick={() => handleRemoveSongFromPlaylist(song.id)}
                           className="text-red-500 hover:bg-red-700/50 hover:text-red-400 cursor-pointer"

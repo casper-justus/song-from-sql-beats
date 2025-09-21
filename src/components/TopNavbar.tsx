@@ -15,13 +15,13 @@ export function TopNavbar() {
   const inactiveClassName = "text-white/60 hover:bg-white/10 hover:text-white";
 
   return (
-    <div className="fixed top-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-4">
+    <div className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-xs sm:max-w-md px-4">
       <div
-        className="flex items-center justify-center gap-2 p-3 rounded-full border border-white/10 shadow-2xl backdrop-blur-xl"
+        className="flex items-center justify-around sm:justify-center sm:gap-2 p-2 sm:p-3 rounded-full border border-white/10 shadow-2xl backdrop-blur-xl"
         style={{
-          backgroundColor: `rgba(0, 0, 0, 0.3)`,
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          backgroundColor: `rgba(20, 20, 20, 0.5)`,
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
         }}
       >
         {navItems.map(item => (
@@ -29,11 +29,12 @@ export function TopNavbar() {
             key={item.to}
             to={item.to}
             className={({ isActive }) => cn(
-              "px-4 py-2 flex items-center gap-2 rounded-full transition-all duration-300 text-sm font-medium",
+              "flex items-center justify-center rounded-full transition-all duration-300 text-sm font-medium",
+              "w-12 h-12 sm:w-auto sm:h-auto sm:py-2 sm:px-4 sm:gap-2",
               isActive ? activeClassName : inactiveClassName
             )}
           >
-            <item.icon className="w-4 h-4" />
+            <item.icon className="w-5 h-5 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">{item.label}</span>
           </NavLink>
         ))}

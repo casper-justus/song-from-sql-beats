@@ -4,9 +4,18 @@ import { useUser } from '@clerk/clerk-react';
 import { useClerkSupabase } from '@/contexts/ClerkSupabaseContext';
 import { Tables } from '@/integrations/supabase/types';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
-import { Play, Pause, Heart, Download, MoreVertical, SkipForward, ListPlus } from 'lucide-react'; // Added icons
+import { Play, Pause, Heart, Download, MoreVertical, SkipForward, ListPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // Added Dropdown
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownSub,
+  DropdownSubContent,
+  DropdownSubTrigger,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 
@@ -15,16 +24,17 @@ type Song = Tables<'songs'>;
 export default function LikedSongsPage() {
   const { user } = useUser();
   const { supabase, isReady } = useClerkSupabase();
-  const { 
-    // selectSong, // Will be replaced by specific setQueue call
-    setQueue, // Added
-    currentSong, 
-    isPlaying, 
-    togglePlay, 
-    likedSongIds, 
+  const {
+    setQueue,
+    currentSong,
+    isPlaying,
+    togglePlay,
+    likedSongIds,
     toggleLikeSong,
-    playNextInQueue, // Added
-    addToQueue // Added
+    playNextInQueue,
+    addToQueue,
+    playlists,
+    addSongToPlaylist
   } = useMusicPlayer();
   
   const [likedSongsDetails, setLikedSongsDetails] = useState<Song[]>([]);
@@ -202,6 +212,27 @@ export default function LikedSongsPage() {
                     >
                       <ListPlus className="w-4 h-4 mr-2" /> Add to Queue
                     </DropdownMenuItem>
+                    <DropdownSub>
+                      <DropdownSubTrigger className="hover:bg-gray-700 cursor-pointer">
+                        <ListPlus className="w-4 h-4 mr-2" />
+                        Add to Playlist
+                      </DropdownSubTrigger>
+                      <DropdownSubContent className="bg-gray-800 border-gray-700 text-white">
+                        {playlists.length > 0 ? (
+                          playlists.map(playlist => (
+                            <DropdownMenuItem
+                              key={playlist.id}
+                              onClick={() => addSongToPlaylist(playlist.id, song.id)}
+                              className="hover:bg-gray-700 cursor-pointer"
+                            >
+                              {playlist.name}
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No playlists found</DropdownMenuItem>
+                        )}
+                      </DropdownSubContent>
+                    </DropdownSub>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
