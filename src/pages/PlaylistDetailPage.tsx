@@ -7,7 +7,7 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Tables } from '@/integrations/supabase/types';
 import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/components/ui/dropdown-menu';
 import { ArrowLeft, Play, ListPlus, Trash2, MoreVertical, SkipForward, Pause } from 'lucide-react';
 
 type Song = Tables<'songs'>;
@@ -240,12 +240,12 @@ const PlaylistDetailPage = () => {
                         >
                           <ListPlus className="w-4 h-4 mr-2" /> Add to Queue
                         </DropdownMenuItem>
-                        <DropdownSub>
-                          <DropdownSubTrigger className="hover:bg-gray-700 cursor-pointer">
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger className="hover:bg-gray-700 cursor-pointer">
                             <ListPlus className="w-4 h-4 mr-2" />
                             Add to Playlist
-                          </DropdownSubTrigger>
-                          <DropdownSubContent className="bg-gray-800 border-gray-700 text-white">
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="bg-gray-800 border-gray-700 text-white">
                             {playlists.map(playlist => (
                               <DropdownMenuItem
                                 key={playlist.id}
@@ -255,8 +255,8 @@ const PlaylistDetailPage = () => {
                                 {playlist.name}
                               </DropdownMenuItem>
                             ))}
-                          </DropdownSubContent>
-                        </DropdownSub>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
                         <DropdownMenuItem
                           onClick={() => handleRemoveSongFromPlaylist(song.id)}
                           className="text-red-500 hover:bg-red-700/50 hover:text-red-400 cursor-pointer"

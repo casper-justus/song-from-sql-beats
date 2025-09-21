@@ -200,19 +200,19 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     queryFn: async () => {
       if (!supabase || !user) return null;
 
-      const { data, error } = await supabase.rpc('ensure_profile_exists', {
-        clerk_id: user.id,
-        full_name: user.fullName,
-        username: user.username,
-        avatar_url: user.imageUrl,
-      });
+      const { data, error } = await supabase.from('profiles').upsert({
+        id: user.id,
+        full_name: user.fullName || '',
+        username: user.username || user.firstName || 'Unknown',
+        avatar_url: user.imageUrl || '',
+      }).select().single();
 
       if (error) {
         console.error("Error ensuring profile exists:", error);
         throw error;
       }
 
-      return data && data.length > 0 ? data[0] : null;
+      return data;
     },
     enabled: !!user && !!supabase,
     staleTime: Infinity,

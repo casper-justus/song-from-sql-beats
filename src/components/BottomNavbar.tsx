@@ -4,6 +4,7 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ResolvedCoverImage from './ResolvedCoverImage';
+import { NowPlayingModal } from './NowPlayingModal';
 
 export function BottomNavbar() {
   const {
@@ -23,6 +24,7 @@ export function BottomNavbar() {
   } = useMusicPlayer();
 
   const [dominantColor, setDominantColor] = useState('#F9C901');
+  const [showNowPlaying, setShowNowPlaying] = useState(false);
 
   // Generate dynamic colors based on song info
   useEffect(() => {
@@ -166,12 +168,17 @@ export function BottomNavbar() {
 
         {/* Left: Album Art & Info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <ResolvedCoverImage
-            imageKey={currentSong.cover_url}
-            videoId={currentSong.video_id}
-            altText={currentSong.title || 'Album cover'}
-            className="w-12 h-12 rounded-lg object-cover shadow-xl ring-2 ring-white/10"
-          />
+          <button 
+            onClick={() => setShowNowPlaying(true)}
+            className="flex-shrink-0 hover:scale-105 transition-transform duration-200"
+          >
+            <ResolvedCoverImage
+              imageKey={currentSong.cover_url}
+              videoId={currentSong.video_id}
+              altText={currentSong.title || 'Album cover'}
+              className="w-12 h-12 rounded-lg object-cover shadow-xl ring-2 ring-white/10"
+            />
+          </button>
           <div className="flex flex-col min-w-0">
             <p className="font-semibold text-white text-sm truncate">
               {currentSong.title || "Unknown Title"}
@@ -247,6 +254,12 @@ export function BottomNavbar() {
           </Button>
         </div>
       </div>
+
+      {/* Now Playing Modal */}
+      <NowPlayingModal 
+        open={showNowPlaying} 
+        onOpenChange={setShowNowPlaying} 
+      />
     </div>
   );
 }

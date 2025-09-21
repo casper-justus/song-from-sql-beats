@@ -11,9 +11,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownSub,
-  DropdownSubContent,
-  DropdownSubTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -212,12 +212,12 @@ export default function LikedSongsPage() {
                     >
                       <ListPlus className="w-4 h-4 mr-2" /> Add to Queue
                     </DropdownMenuItem>
-                    <DropdownSub>
-                      <DropdownSubTrigger className="hover:bg-gray-700 cursor-pointer">
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="hover:bg-gray-700 cursor-pointer">
                         <ListPlus className="w-4 h-4 mr-2" />
                         Add to Playlist
-                      </DropdownSubTrigger>
-                      <DropdownSubContent className="bg-gray-800 border-gray-700 text-white">
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="bg-gray-800 border-gray-700 text-white">
                         {playlists.length > 0 ? (
                           playlists.map(playlist => (
                             <DropdownMenuItem
@@ -231,8 +231,8 @@ export default function LikedSongsPage() {
                         ) : (
                           <DropdownMenuItem disabled>No playlists found</DropdownMenuItem>
                         )}
-                      </DropdownSubContent>
-                    </DropdownSub>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

@@ -15,9 +15,10 @@ import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignUpPage";
 import LibraryPage from "./pages/LibraryPage";
 import LikedSongsPage from "./pages/LikedSongsPage";
+import PlaylistsPage from "./pages/PlaylistsPage";
 import SearchPage from "./pages/SearchPage";
 import ProfilePage from "./pages/ProfilePage";
-import PlaylistDetailPage from "./pages/PlaylistDetailPage"; // Added import
+import PlaylistDetailPage from "./pages/PlaylistDetailPage";
 import ClerkProtectedRoute from "./components/auth/ClerkProtectedRoute";
 import { TopNavbar } from "./components/TopNavbar";
 import { BottomNavbar } from "./components/BottomNavbar";
@@ -51,8 +52,8 @@ const AppContent = () => {
           <Route path="/signup" element={<SignUpPage />} />
 
           <Route element={<ClerkProtectedRoute />}>
-            <Route path="/library" element={<LibraryPage />} />
-            <Route path="/liked" element={<LikedSongsPage />} />
+            <Route path="/library" element={<PlaylistsPage />} />
+            <Route path="/liked-songs" element={<LikedSongsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/playlist/:playlistId" element={<PlaylistDetailPage />} />
           </Route>
