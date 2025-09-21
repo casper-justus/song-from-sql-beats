@@ -5,7 +5,7 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Music, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -83,6 +83,9 @@ export default function PlaylistsPage() {
             <DialogContent className="bg-gray-900 border-gray-700 text-white">
               <DialogHeader>
                 <DialogTitle>Create New Playlist</DialogTitle>
+                <DialogDescription>
+                  Give your new playlist a name and an optional description.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>

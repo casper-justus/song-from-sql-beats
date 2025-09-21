@@ -6,7 +6,7 @@ import { useUser } from '@clerk/clerk-react';
 import { Play, Pause, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import ResolvedCoverImage from './ResolvedCoverImage';
 
 type Song = Tables<'songs'>;
@@ -113,6 +113,9 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ playlist }) => {
             <DialogContent className="bg-gray-800 text-white border-gray-700 max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Add Songs to {playlist.name}</DialogTitle>
+                <DialogDescription>
+                  Select songs from your library to add to this playlist.
+                </DialogDescription>
               </DialogHeader>
               <div className="max-h-96 overflow-y-auto space-y-2">
                 {availableSongs.length > 0 ? (

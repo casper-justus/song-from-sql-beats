@@ -20,6 +20,7 @@ interface MusicPlayerContextType {
   queue: Song[];
   currentQueueIndex: number;
   isPlaying: boolean;
+  isShuffle: boolean;
   currentTime: number;
   duration: number;
   volume: number;
@@ -30,8 +31,10 @@ interface MusicPlayerContextType {
   isCurrentSongLiked: boolean;
   likedSongIds: Set<string>;
   playlists: Playlist[];
+  songDurations: Record<string, number>;
   preloadProgress: number;
   togglePlay: () => void;
+  toggleShuffle: () => void;
   playNext: () => void;
   playPrevious: () => void;
   selectSong: (song: Song) => void;
@@ -47,7 +50,7 @@ interface MusicPlayerContextType {
   setShowLyricsDialog: (show: boolean) => void;
   setShowQueueDialog: (show: boolean) => void;
   toggleLikeSong: (songId: string, videoId: string) => Promise<void>;
-  createPlaylist: (name: string, description?: string) => Promise<any>;
+  createPlaylist: (name: string, description?: string) => Promise<Playlist | undefined>;
   addSongToPlaylist: (playlistId: string, songId: string) => Promise<void>;
   removeSongFromPlaylist: (playlistId: string, songId: string) => Promise<void>;
   deletePlaylist: (playlistId: string) => Promise<void>;
@@ -63,16 +66,19 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [songs, setSongs] = useState<Song[]>([]);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [queue, setQueueState] = useState<Song[]>([]);
+  const [originalQueue, setOriginalQueue] = useState<Song[]>([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
   const [likedSongIds, setLikedSongIds] = useState<Set<string>>(new Set());
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isShuffle, setIsShuffle] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.75);
   const [lyrics, setLyrics] = useState('');
   const [showLyricsDialog, setShowLyricsDialog] = useState(false);
   const [showQueueDialog, setShowQueueDialog] = useState(false);
+  const [songDurations, setSongDurations] = useState<Record<string, number>>({});
   const [preloadProgress, setPreloadProgress] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const queryClient = useQueryClient();
@@ -109,24 +115,27 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const playFromQueue = useCallback(async (index: number, autoPlay = true) => {
     if (index < 0 || index >= queue.length) return;
     const song = queue[index];
-    const nextSong = queue[(index + 1) % queue.length];
     setCurrentSong(song);
     setCurrentQueueIndex(index);
     setCurrentTime(0);
     setIsPlaying(autoPlay);
-    // Use the activePlayerRef from the useAudioPlayer hook below
   }, [queue]);
 
   const playNext = useCallback((autoPlay = false) => {
     if (queue.length === 0) return;
-    const nextIndex = (currentQueueIndex + 1) % queue.length;
-    if (playFromQueue) playFromQueue(nextIndex, autoPlay);
-  }, [queue, currentQueueIndex, playFromQueue]);
+    if (isShuffle) {
+      const nextIndex = Math.floor(Math.random() * queue.length);
+      playFromQueue(nextIndex, autoPlay);
+    } else {
+      const nextIndex = (currentQueueIndex + 1) % queue.length;
+      playFromQueue(nextIndex, autoPlay);
+    }
+  }, [queue, currentQueueIndex, playFromQueue, isShuffle]);
 
   const playPrevious = useCallback(() => {
     if (queue.length === 0) return;
     const prevIndex = (currentQueueIndex - 1 + queue.length) % queue.length;
-    if (playFromQueue) playFromQueue(prevIndex, true);
+    if (playFromQueue) playFromQueue(prevIndex);
   }, [queue, currentQueueIndex, playFromQueue]);
 
   // Use audio player hook
@@ -136,36 +145,49 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     activePlayerRef,
     inactivePlayerRef,
     setActivePlayer,
+    play,
+    pause,
+    load,
     seek,
     setVolume,
   } = useAudioPlayer(
     setCurrentTime,
     setDuration,
-    () => playNext(true) // onEnded callback
+    () => playNext(true), // onEnded callback
+    currentSong?.id || null,
+    (songId, duration) => {
+      setSongDurations(prev => ({ ...prev, [songId]: duration }));
+    }
   );
 
-  // useEffect to load and play audio, now that all functions are defined.
+  // useEffect to load and play audio when currentSong changes
   useEffect(() => {
     const loadAndPlay = async () => {
-        if (!currentSong) return;
-        if(audioRefA.current) audioRefA.current.pause();
-        if(audioRefB.current) audioRefB.current.pause();
+      if (!currentSong) return;
+      const audioFileKey = currentSong.storage_path || currentSong.file_url;
+      if (!audioFileKey) return;
 
-        await preloadSong(currentSong, activePlayerRef);
-        const nextSong = queue[(currentQueueIndex + 1) % queue.length];
+      let audioSrc = audioBlobCache.get(currentSong.id)
+        ? URL.createObjectURL(audioBlobCache.get(currentSong.id)!)
+        : null;
+
+      if (!audioSrc) {
+        audioSrc = await resolveMediaUrlWithSession(audioFileKey, true, 'high');
+      }
+
+      if (audioSrc) {
+        load(audioSrc, isPlaying);
+      }
+
+      // Preload the next song
+      const nextSong = queue[(currentQueueIndex + 1) % queue.length];
+      if (nextSong) {
         await preloadSong(nextSong, inactivePlayerRef);
-
-        if (isPlaying && activePlayerRef.current) {
-            try {
-                await activePlayerRef.current.play();
-            } catch (e) {
-                console.error("Error playing audio:", e);
-                setIsPlaying(false);
-            }
-        }
+      }
     };
+
     loadAndPlay();
-  }, [currentSong, isPlaying, activePlayerRef, inactivePlayerRef, preloadSong, queue, currentQueueIndex]);
+  }, [currentSong, isPlaying, inactivePlayerRef, preloadSong, queue, currentQueueIndex, load, resolveMediaUrlWithSession]);
 
   // Fetch songs with mobile-optimized caching
   const { data: fetchedSongs = [], isLoading: isLoadingSongs, error: songsError } = useQuery({
@@ -239,6 +261,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   });
 
   const setQueue = useCallback((newQueue: Song[], startIndex: number = 0) => {
+    setOriginalQueue(newQueue);
     setQueueState(newQueue);
     setCurrentQueueIndex(startIndex);
     if (newQueue.length > 0) {
@@ -249,6 +272,19 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       }, 100);
     }
   }, [resolveMediaUrlWithSession]);
+
+  const toggleShuffle = () => {
+    setIsShuffle(prev => !prev);
+  };
+
+  useEffect(() => {
+    if (isShuffle) {
+      const shuffledQueue = [...originalQueue].sort(() => Math.random() - 0.5);
+      setQueueState(shuffledQueue);
+    } else {
+      setQueueState(originalQueue);
+    }
+  }, [isShuffle, originalQueue]);
 
   // Initialize with aggressive prefetching
   useEffect(() => {
@@ -431,27 +467,34 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
           setCurrentSong(lastSong);
           setQueueState([lastSong]);
           setCurrentQueueIndex(0);
-          // Set the time after the song loads
-          setTimeout(() => {
-            if (activePlayerRef.current) {
-              activePlayerRef.current.currentTime = playbackState.currentTime;
-              setCurrentTime(playbackState.currentTime);
-            }
-          }, 1000);
+          setIsPlaying(true);
+          const audioFileKey = lastSong.storage_path || lastSong.file_url;
+          if (audioFileKey) {
+            resolveMediaUrlWithSession(audioFileKey, true, 'high').then(audioSrc => {
+              if (audioSrc) {
+                load(audioSrc, true, () => {
+                  seek(playbackState.currentTime);
+                });
+              }
+            });
+          }
         }
       }
       setIsInitialized(true);
     }
-  }, [songs, isInitialized, activePlayerRef]);
+  }, [songs, isInitialized, load, resolveMediaUrlWithSession, seek]);
 
   // Save playback state periodically and on song changes
   useEffect(() => {
-    if (currentSong && currentTime > 0 && duration > 0) {
-      // Debounce saving every 5 seconds to avoid too many localStorage writes
-      const timeInterval = Math.floor(currentTime / 5) * 5;
-      savePlaybackState(currentSong.id, currentTime, duration);
-    }
-  }, [currentSong?.id, Math.floor(currentTime / 5), duration]);
+    const saveState = () => {
+      if (currentSong && currentTime > 0 && duration > 0) {
+        savePlaybackState(currentSong.id, currentTime, duration);
+      }
+    };
+
+    const timer = setTimeout(saveState, 1000); // Debounce saving
+    return () => clearTimeout(timer);
+  }, [currentTime, currentSong, duration]);
 
   // Update volume
   useEffect(() => {
@@ -499,28 +542,14 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [queue, playFromQueue]);
 
   const togglePlay = useCallback(() => {
-    const audio = activePlayerRef.current;
-    if (!audio || !currentSong) return;
-
-    if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
-    } else {
-      if (audio.src) {
-        audio.play().then(() => setIsPlaying(true)).catch(e => console.error("Error toggling play:", e));
-      } else {
-        // If no src, selectSong should be used first.
-        // Or re-load the current song.
-        playFromQueue(currentQueueIndex);
-      }
-    }
-  }, [isPlaying, currentSong, activePlayerRef, playFromQueue, currentQueueIndex]);
+    setIsPlaying(!isPlaying);
+  }, [isPlaying]);
 
   const setVolumeLevel = useCallback((level: number) => {
     const newVolume = level / 100;
     setVolumeState(newVolume);
     saveUserPreferences(newVolume);
-  }, [setVolumeState]);
+  }, []);
 
   return (
     <div className="pb-24">
@@ -531,6 +560,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         queue,
         currentQueueIndex,
         isPlaying,
+        isShuffle,
         currentTime,
         duration,
         volume: volume * 100,
@@ -541,8 +571,10 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         isCurrentSongLiked,
         likedSongIds,
         playlists,
+        songDurations,
         preloadProgress,
         togglePlay,
+        toggleShuffle,
         playNext,
         playPrevious,
         selectSong,

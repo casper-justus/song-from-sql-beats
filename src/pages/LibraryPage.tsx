@@ -6,7 +6,7 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Plus, Music, Trash2, Download, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,7 +22,7 @@ export default function LibraryPage() {
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [newPlaylistDescription, setNewPlaylistDescription] = useState('');
-  const [downloadedTracks, setDownloadedTracks] = useState<any[]>([]);
+  const [downloadedTracks, setDownloadedTracks] = useState<{ songId: string; title: string; artist: string; fileName: string }[]>([]);
 
   React.useEffect(() => {
     // Load downloaded tracks from localStorage when component mounts or tab is active
@@ -98,6 +98,9 @@ export default function LibraryPage() {
               <DialogContent className="bg-gray-800 text-white border-gray-700">
                 <DialogHeader>
                   <DialogTitle>Create New Playlist</DialogTitle>
+                  <DialogDescription>
+                    Give your new playlist a name and an optional description.
+                  </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleCreatePlaylist} className="space-y-4">
                   <div>

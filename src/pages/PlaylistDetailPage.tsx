@@ -8,7 +8,7 @@ import { Tables } from '@/integrations/supabase/types';
 import ResolvedCoverImage from '@/components/ResolvedCoverImage';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, Play, ListPlus, Trash2, MoreVertical, SkipForward, Pause } from 'lucide-react';
+import { ArrowLeft, Play, ListPlus, Trash2, MoreVertical, SkipForward, Pause, Shuffle } from 'lucide-react';
 
 type Song = Tables<'songs'>;
 type Playlist = Tables<'playlists'>;
@@ -26,6 +26,7 @@ const PlaylistDetailPage = () => {
   const {
     profile, // <-- Get profile
     setQueue,
+    toggleShuffle,
     currentSong,
     isPlaying,
     addToQueue,
@@ -91,6 +92,14 @@ const PlaylistDetailPage = () => {
     const songsInPlaylist = playlistSongs.map(ps => ps.songs).filter(Boolean) as Song[];
     if (songsInPlaylist.length > 0) {
       setQueue(songsInPlaylist, 0);
+    }
+  };
+
+  const handleShufflePlay = () => {
+    const songsInPlaylist = playlistSongs.map(ps => ps.songs).filter(Boolean) as Song[];
+    if (songsInPlaylist.length > 0) {
+      setQueue(songsInPlaylist, 0);
+      toggleShuffle();
     }
   };
 
@@ -167,9 +176,12 @@ const PlaylistDetailPage = () => {
 
         {songsToDisplay.length > 0 ? (
           <>
-            <div className="mb-6 text-center">
+            <div className="mb-6 text-center flex items-center justify-center gap-4">
               <Button onClick={handlePlayPlaylist} size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black">
                 <Play className="w-5 h-5 mr-2" /> Play All
+              </Button>
+              <Button onClick={handleShufflePlay} size="lg" variant="outline" className="text-white hover:bg-white/10 hover:text-yellow-400">
+                <Shuffle className="w-5 h-5 mr-2" /> Shuffle All
               </Button>
             </div>
             <div className="space-y-2 sm:space-y-3">

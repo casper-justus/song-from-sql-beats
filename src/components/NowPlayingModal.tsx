@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Heart, List, MoreVertical, Download, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat } from 'lucide-react';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { cn } from '@/lib/utils';
 import ResolvedCoverImage from './ResolvedCoverImage';
@@ -100,7 +101,12 @@ export function NowPlayingModal({ open, onOpenChange }: NowPlayingModalProps) {
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-700/50">
-            <h2 className="text-lg font-semibold text-white">Now Playing</h2>
+            <DialogTitle className="text-lg font-semibold text-white">Now Playing</DialogTitle>
+            <VisuallyHidden>
+              <DialogDescription>
+                This modal displays the currently playing song with controls for playback, liking, and more.
+              </DialogDescription>
+            </VisuallyHidden>
             <Button
               variant="ghost"
               size="icon"

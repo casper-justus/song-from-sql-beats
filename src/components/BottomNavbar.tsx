@@ -2,15 +2,15 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Heart, List } from 'lucide-react';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import ResolvedCoverImage from './ResolvedCoverImage';
 import { NowPlayingModal } from './NowPlayingModal';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export function BottomNavbar() {
   const {
     currentSong,
-    queue,
-    currentQueueIndex,
     isPlaying,
     currentTime,
     duration,
@@ -19,11 +19,13 @@ export function BottomNavbar() {
     togglePlay,
     playNext,
     playPrevious,
+    seek,
     setShowQueueDialog,
     activePlayerRef,
   } = useMusicPlayer();
 
-  const [dominantColor, setDominantColor] = useState('#F9C901');
+  const isMobile = useIsMobile();
+  const [dominantColor, setDominantColor] = useState('#1DB954'); // Spotify green as a fallback
   const [showNowPlaying, setShowNowPlaying] = useState(false);
 
   // Generate dynamic colors based on song info
@@ -64,6 +66,12 @@ export function BottomNavbar() {
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  const handleSeek = (value: number[]) => {
+    if (duration > 0) {
+      seek(value[0]);
+    }
+  };
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -74,7 +82,7 @@ export function BottomNavbar() {
   useEffect(() => {
     if (isPlaying && activePlayerRef?.current && !sourceRef.current) {
         try {
-            const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const context = new (window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
             const source = context.createMediaElementSource(activePlayerRef.current);
             const analyser = context.createAnalyser();
 
@@ -143,16 +151,15 @@ export function BottomNavbar() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50">
-      {/* Enhanced Progress Bar */}
-      <div className="relative h-1 bg-black/20 backdrop-blur-sm">
-        <div
-          className="absolute top-0 left-0 h-full bg-gradient-to-r from-white via-white/90 to-white/80 transition-all duration-200 shadow-sm"
-          style={{ width: `${progressPercentage}%` }}
-        />
-        {/* Progress indicator dot */}
-        <div
-          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-all duration-200"
-          style={{ left: `${progressPercentage}%`, transform: 'translate(-50%, -50%)' }}
+      {/* Enhanced, Seekable Progress Bar */}
+      <div className="group relative h-2 bg-transparent -mb-1">
+        <Slider
+          value={[currentTime]}
+          max={duration || 100}
+          step={1}
+          onValueChange={handleSeek}
+          className="absolute inset-0 w-full h-full"
+          disabled={!currentSong || duration === 0}
         />
       </div>
       
@@ -167,7 +174,7 @@ export function BottomNavbar() {
         />
 
         {/* Left: Album Art & Info */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="flex items-center gap-3 flex-1 min-w-0 md:w-1/4">
           <button 
             onClick={() => setShowNowPlaying(true)}
             className="flex-shrink-0 hover:scale-105 transition-transform duration-200"
@@ -187,8 +194,8 @@ export function BottomNavbar() {
               {currentSong.artist || "Unknown Artist"}
             </p>
           </div>
-          {/* Time display on mobile */}
-          <div className="hidden xs:flex text-xs text-white/50 ml-2">
+          {/* Time display on desktop */}
+          <div className="hidden sm:flex text-xs text-white/50 ml-2">
             <span>{formatTime(currentTime)}</span>
             <span className="mx-1">/</span>
             <span>{formatTime(duration)}</span>
@@ -196,21 +203,26 @@ export function BottomNavbar() {
         </div>
 
         {/* Center: Controls */}
-        <div className="flex items-center gap-3 flex-shrink-0 mx-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={playPrevious}
-            className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-9 h-9 transition-all duration-200"
-          >
-            <SkipBack className="w-4 h-4" />
-          </Button>
+        <div className={cn(
+          "flex items-center gap-2 flex-shrink-0 md:mx-4",
+          isMobile && "flex-1 justify-end"
+        )}>
+          {!isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={playPrevious}
+              className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-9 h-9 transition-all"
+            >
+              <SkipBack className="w-4 h-4" />
+            </Button>
+          )}
 
           <Button
             variant="ghost"
             size="icon"
             onClick={togglePlay}
-            className="text-white bg-white/15 hover:bg-white/25 rounded-full w-12 h-12 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+            className="text-white bg-white/15 hover:bg-white/25 rounded-full w-12 h-12 shadow-lg transition-all hover:scale-105"
           >
             {isPlaying ? (
               <Pause className="w-5 h-5" />
@@ -223,22 +235,22 @@ export function BottomNavbar() {
             variant="ghost"
             size="icon"
             onClick={playNext}
-            className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-9 h-9 transition-all duration-200"
+            className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-9 h-9 transition-all"
           >
             <SkipForward className="w-4 h-4" />
           </Button>
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-3 flex-1 justify-end">
+        <div className="flex items-center gap-3 justify-end md:w-1/4">
           <Button
             variant="ghost"
             size="icon"
             onClick={handleLikeClick}
             className={cn(
-              "rounded-full w-9 h-9 transition-all duration-200",
-              isCurrentSongLiked 
-                ? "text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20" 
+              "rounded-full w-9 h-9 transition-all",
+              isCurrentSongLiked
+                ? "text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20"
                 : "text-white/60 hover:text-white hover:bg-white/10"
             )}
           >
@@ -248,7 +260,7 @@ export function BottomNavbar() {
             variant="ghost"
             size="icon"
             onClick={() => setShowQueueDialog(true)}
-            className="text-white/60 hover:text-white hover:bg-white/10 rounded-full w-9 h-9 transition-all duration-200"
+            className="text-white/60 hover:text-white hover:bg-white/10 rounded-full w-9 h-9 transition-all"
           >
             <List className="w-4 h-4" />
           </Button>
