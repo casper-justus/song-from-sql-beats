@@ -1,18 +1,18 @@
 import React from 'react';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
-import { Play, Pause, X, GripVertical } from 'lucide-react';
+import { Play, X, GripVertical, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ResolvedCoverImage from './ResolvedCoverImage';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export function QueueDialog() {
   const {
     queue,
     currentQueueIndex,
-    currentSong,
     isPlaying,
     showQueueDialog,
     setShowQueueDialog,
@@ -20,20 +20,17 @@ export function QueueDialog() {
     removeFromQueue,
     reorderQueueItem,
     clearQueue,
+    songDurations,
   } = useMusicPlayer();
+  const isMobile = useIsMobile();
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
-    
-    const startIndex = result.source.index;
-    const endIndex = result.destination.index;
-    
-    if (startIndex !== endIndex) {
-      reorderQueueItem(startIndex, endIndex);
-    }
+    reorderQueueItem(result.source.index, result.destination.index);
   };
 
-  const formatDuration = (seconds: number) => {
+  const formatDuration = (seconds: number | undefined) => {
+    if (typeof seconds !== 'number' || isNaN(seconds)) return '?:??';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -41,148 +38,126 @@ export function QueueDialog() {
 
   return (
     <Dialog open={showQueueDialog} onOpenChange={setShowQueueDialog}>
-      <DialogContent className="max-w-md w-full h-[80vh] bg-gray-900 border-gray-700 p-0 overflow-hidden">
-        <div className="h-full flex flex-col">
-          <DialogHeader className="p-4 border-b border-gray-700/50">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-white">Queue</DialogTitle>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">{queue.length} songs</span>
-                {queue.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearQueue}
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
-                  >
-                    Clear
-                  </Button>
-                )}
+      <DialogContent className="max-w-md sm:max-w-md w-[90vw] max-h-[85vh] bg-gray-900/80 border-gray-700 p-4 sm:p-6 overflow-hidden backdrop-blur-xl flex flex-col">
+        <DialogHeader>
+          <div className="flex items-center justify-between mb-4">
+            <DialogTitle className="text-white text-xl">Queue</DialogTitle>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">{queue.length} songs</span>
+              {queue.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearQueue}
+                  className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+          <DialogDescription className="text-gray-400 text-sm">
+            Drag and drop to reorder songs. The next song will play automatically.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="overflow-y-auto mt-2 -mr-2 pr-2">
+          {queue.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-400 py-16">
+              <div className="text-center">
+                <p>Queue is empty.</p>
+                <p className="text-sm mt-1">Add songs to start listening.</p>
               </div>
             </div>
-          </DialogHeader>
+          ) : (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="queue">
+                {(provided, snapshot) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className={cn("p-1 space-y-2", snapshot.isDraggingOver && "bg-gray-800/50 rounded-lg")}
+                  >
+                    {queue.map((song, index) => (
+                      <Draggable key={song.id} draggableId={song.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={cn(
+                              "group flex items-center gap-3 p-2 rounded-lg transition-all duration-200",
+                              index === currentQueueIndex && "bg-green-500/20",
+                              snapshot.isDragging && "shadow-xl bg-gray-700/60"
+                            )}
+                          >
+                            {/* Drag handle */}
+                            <div
+                              {...provided.dragHandleProps}
+                              className="text-gray-500 hover:text-gray-300 cursor-grab active:cursor-grabbing py-2"
+                            >
+                              <GripVertical className="w-5 h-5" />
+                            </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {queue.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-400">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Play className="w-8 h-8" />
-                  </div>
-                  <p>Queue is empty</p>
-                  <p className="text-sm mt-1">Add songs to start listening</p>
-                </div>
-              </div>
-            ) : (
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="queue">
-                  {(provided, snapshot) => (
-                    <div
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className={cn(
-                        "p-2 space-y-1",
-                        snapshot.isDraggingOver && "bg-gray-800/50"
-                      )}
-                    >
-                      {queue.map((song, index) => (
-                        <Draggable key={song.id} draggableId={song.id} index={index}>
-                          {(provided, snapshot) => (
-                            <Card
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
+                            {/* Album art & Play Button */}
+                            <button
+                              onClick={() => playFromQueue(index)}
+                              className="relative flex-shrink-0 group/cover"
+                            >
+                              <ResolvedCoverImage
+                                imageKey={song.cover_url}
+                                videoId={song.video_id}
+                                altText={song.title || 'Song cover'}
+                                className="w-12 h-12 rounded object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity">
+                                {index === currentQueueIndex && isPlaying
+                                  ? <Pause className="w-6 h-6 text-white" />
+                                  : <Play className="w-6 h-6 text-white" />
+                                }
+                              </div>
+                            </button>
+
+                            {/* Song info */}
+                            <div className="flex-1 min-w-0">
+                              <p className={cn(
+                                "font-medium text-sm truncate",
+                                index === currentQueueIndex ? "text-green-400" : "text-white"
+                              )}>
+                                {song.title || "Unknown Title"}
+                              </p>
+                              <p className="text-gray-400 text-xs truncate">
+                                {song.artist || "Unknown Artist"}
+                              </p>
+                            </div>
+
+                            {/* Duration */}
+                            <div className="text-gray-400 text-xs px-2">
+                              {formatDuration(songDurations[song.id] || song.duration)}
+                            </div>
+
+                            {/* Remove button */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeFromQueue(index)}
                               className={cn(
-                                "bg-gray-800/40 border-gray-700 transition-all duration-200 hover:bg-gray-700/50",
-                                index === currentQueueIndex && "bg-green-500/20 border-green-500/50",
-                                snapshot.isDragging && "shadow-xl rotate-2 scale-105"
+                                "w-8 h-8 text-gray-500 hover:text-red-400 hover:bg-red-500/20 rounded-full",
+                                isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                                "transition-opacity"
                               )}
                             >
-                              <CardContent className="p-3">
-                                <div className="flex items-center gap-3">
-                                  {/* Drag handle */}
-                                  <div 
-                                    {...provided.dragHandleProps}
-                                    className="text-gray-500 hover:text-gray-300 cursor-grab active:cursor-grabbing"
-                                  >
-                                    <GripVertical className="w-4 h-4" />
-                                  </div>
-
-                                  {/* Queue position / play indicator */}
-                                  <div className="w-6 text-center">
-                                    {index === currentQueueIndex && isPlaying ? (
-                                      <div className="w-4 h-4 mx-auto">
-                                        <div className="grid grid-cols-3 gap-0.5 h-full">
-                                          <div className="bg-green-400 animate-pulse"></div>
-                                          <div className="bg-green-400 animate-pulse" style={{ animationDelay: '0.1s' }}></div>
-                                          <div className="bg-green-400 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <span className={cn(
-                                        "text-sm",
-                                        index === currentQueueIndex ? "text-green-400 font-medium" : "text-gray-500"
-                                      )}>
-                                        {index + 1}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {/* Album art */}
-                                  <button
-                                    onClick={() => playFromQueue(index)}
-                                    className="flex-shrink-0 hover:scale-105 transition-transform"
-                                  >
-                                    <ResolvedCoverImage
-                                      imageKey={song.cover_url}
-                                      videoId={song.video_id}
-                                      altText={song.title || 'Song cover'}
-                                      className="w-10 h-10 rounded object-cover"
-                                    />
-                                  </button>
-
-                                  {/* Song info */}
-                                  <div className="flex-1 min-w-0">
-                                    <p className={cn(
-                                      "font-medium text-sm truncate",
-                                      index === currentQueueIndex ? "text-green-400" : "text-white"
-                                    )}>
-                                      {song.title || "Unknown Title"}
-                                    </p>
-                                    <p className="text-gray-400 text-xs truncate">
-                                      {song.artist || "Unknown Artist"}
-                                    </p>
-                                  </div>
-
-                                  {/* Duration */}
-                                  <div className="text-gray-400 text-xs">
-                                    3:45
-                                  </div>
-
-                                  {/* Remove button */}
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeFromQueue(index);
-                                    }}
-                                    className="w-8 h-8 text-gray-500 hover:text-red-400 hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
-            )}
-          </div>
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          )}
         </div>
       </DialogContent>
     </Dialog>

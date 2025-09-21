@@ -25,10 +25,20 @@ const getDeviceType = () => {
   return 'desktop';
 };
 
+interface Connection {
+  effectiveType: 'slow-2g' | '2g' | '3g' | '4g';
+  downlink: number;
+}
+
+interface MemoryInfo {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+}
+
 // Enhanced network quality detection with mobile considerations
 const getNetworkQuality = (): 'slow' | 'medium' | 'fast' => {
   if ('connection' in navigator) {
-    const connection = (navigator as any).connection;
+    const connection = (navigator as unknown as { connection: Connection }).connection;
     const effectiveType = connection.effectiveType;
     const downlink = connection.downlink || 0;
     
@@ -41,8 +51,8 @@ const getNetworkQuality = (): 'slow' | 'medium' | 'fast' => {
 
 // Mobile-optimized memory detection
 const getMemoryInfo = () => {
-  if ('memory' in performance && (performance as any).memory) {
-    const memory = (performance as any).memory;
+  if ('memory' in performance && (performance as unknown as { memory: MemoryInfo }).memory) {
+    const memory = (performance as unknown as { memory: MemoryInfo }).memory;
     const usedJSHeapSize = memory.usedJSHeapSize / 1024 / 1024; // MB
     const totalJSHeapSize = memory.totalJSHeapSize / 1024 / 1024; // MB
     
@@ -68,9 +78,13 @@ export function constructMusicR2Key(storagePath: string): string {
 /**
  * Enhanced URL resolution with flawless CORS handling - FIXED headers
  */
+type Session = {
+  getToken: (options: { template: string }) => Promise<string | null>;
+};
+
 export async function resolveMediaUrl(
   fileKey: string, 
-  session: any, 
+  session: Session,
   isAudioFile: boolean = false,
   priority: 'high' | 'normal' = 'normal'
 ): Promise<string | null> {
@@ -206,11 +220,19 @@ export async function resolveMediaUrl(
   return null;
 }
 
+type Song = {
+  id: string;
+  storage_path: string;
+  file_url: string;
+  cover_url: string;
+  title: string;
+};
+
 /**
  * Aggressive prefetching with intelligent prioritization and flawless loading
  */
 export async function startBackgroundPrefetch(
-  songs: any[], 
+  songs: Song[],
   resolveUrl: (key: string, isAudio: boolean, priority?: 'high' | 'normal') => Promise<string | null>,
   currentIndex: number = 0
 ) {
@@ -233,7 +255,7 @@ export async function startBackgroundPrefetch(
     maxPrefetch = networkQuality === 'fast' ? 50 : 30;
   }
 
-  const prefetchList = [];
+  const prefetchList: { song: Song; priority: 'high' | 'normal'; index: number }[] = [];
   
   // Prioritize immediate next 7 songs for seamless playback
   for (let i = 0; i < Math.min(7, songs.length); i++) {
@@ -348,7 +370,7 @@ export async function fetchLyricsContent(
   title: string, // title and artist are kept for potential future use or if fetchDirectLrcFile needs them
   artist: string,
   lyricsUrl?: string | null,
-  session?: any
+  session?: Session
 ): Promise<string> {
   // Removed the section that tries to use lrcApi.getLyrics()
 
@@ -366,7 +388,7 @@ export async function fetchLyricsContent(
 }
 
 // Helper for the original direct LRC file fetching logic
-async function fetchDirectLrcFile(lyricsUrl: string, session: any): Promise<string> {
+async function fetchDirectLrcFile(lyricsUrl: string, session: Session): Promise<string> {
   const cacheKey = `lyrics-direct-${lyricsUrl}`;
   const cached = globalMediaCache.get(cacheKey);
   
@@ -385,7 +407,7 @@ async function fetchDirectLrcFile(lyricsUrl: string, session: any): Promise<stri
   try {
     const resolvedLyricsUrl = await resolveMediaUrl(lyricsUrl, session, false, 'normal');
     if (!resolvedLyricsUrl) {
-      throw new Error("Could not resolve lyrics URL.");
+      return 'Lyrics not available for this song.';
     }
 
     globalMediaCache.set(cacheKey, {
@@ -405,6 +427,9 @@ async function fetchDirectLrcFile(lyricsUrl: string, session: any): Promise<stri
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (response.status === 404) {
+        return 'Lyrics not available for this song.';
+      }
       throw new Error(`Failed to fetch lyrics content: ${response.statusText}`);
     }
 
