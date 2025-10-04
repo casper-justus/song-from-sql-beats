@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Music, Search, User } from 'lucide-react';
+import { Chrome as Home, Music, Search, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function TopNavbar() {

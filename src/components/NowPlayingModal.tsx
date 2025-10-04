@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Heart, List, MoreVertical, Download, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat } from 'lucide-react';
+import { Heart, List, MoveVertical as MoreVertical, Download, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat } from 'lucide-react';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { cn } from '@/lib/utils';
