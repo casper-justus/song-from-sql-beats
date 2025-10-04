@@ -274,7 +274,11 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [resolveMediaUrlWithSession]);
 
   const toggleShuffle = () => {
-    setIsShuffle(prev => !prev);
+    setIsShuffle(prev => {
+      const newShuffleState = !prev;
+      saveUserPreferences(volume, 'none', newShuffleState);
+      return newShuffleState;
+    });
   };
 
   useEffect(() => {
@@ -457,7 +461,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (!isInitialized && songs.length > 0) {
       const preferences = loadUserPreferences();
       setVolumeState(preferences.volume);
-      
+      setIsShuffle(preferences.shuffleMode);
+
       // Restore last playback state
       const playbackState = loadPlaybackState();
       if (playbackState?.songId) {
@@ -465,24 +470,27 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         if (lastSong) {
           console.log(`[Playback Restore] Restoring last played song: ${lastSong.title} at ${Math.floor(playbackState.currentTime)}s`);
           setCurrentSong(lastSong);
-          setQueueState([lastSong]);
+          setQueueState([lastSong, ...songs.filter(s => s.id !== lastSong.id)]);
+          setOriginalQueue([lastSong, ...songs.filter(s => s.id !== lastSong.id)]);
           setCurrentQueueIndex(0);
-          setIsPlaying(true);
+          setIsPlaying(false);
           const audioFileKey = lastSong.storage_path || lastSong.file_url;
           if (audioFileKey) {
             resolveMediaUrlWithSession(audioFileKey, true, 'high').then(audioSrc => {
               if (audioSrc) {
-                load(audioSrc, true, () => {
+                load(audioSrc, false, () => {
                   seek(playbackState.currentTime);
                 });
               }
             });
           }
         }
+      } else if (songs.length > 0) {
+        setQueue(songs, 0);
       }
       setIsInitialized(true);
     }
-  }, [songs, isInitialized, load, resolveMediaUrlWithSession, seek]);
+  }, [songs, isInitialized, load, resolveMediaUrlWithSession, seek, setQueue]);
 
   // Save playback state periodically and on song changes
   useEffect(() => {
@@ -496,10 +504,21 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     return () => clearTimeout(timer);
   }, [currentTime, currentSong, duration]);
 
-  // Update volume
+  // Update volume and save playback state before unload
   useEffect(() => {
     setVolume(volume);
   }, [volume, setVolume]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (currentSong && currentTime > 0) {
+        savePlaybackState(currentSong.id, currentTime, duration);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentSong, currentTime, duration]);
 
   // Enhanced lyrics fetching
   useEffect(() => {
@@ -548,8 +567,8 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const setVolumeLevel = useCallback((level: number) => {
     const newVolume = level / 100;
     setVolumeState(newVolume);
-    saveUserPreferences(newVolume);
-  }, []);
+    saveUserPreferences(newVolume, 'none', isShuffle);
+  }, [isShuffle]);
 
   return (
     <div className="pb-24">

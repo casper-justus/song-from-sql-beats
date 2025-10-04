@@ -17,11 +17,13 @@ export function NowPlayingModal({ open, onOpenChange }: NowPlayingModalProps) {
   const {
     currentSong,
     isPlaying,
+    isShuffle,
     currentTime,
     duration,
     isCurrentSongLiked,
     toggleLikeSong,
     togglePlay,
+    toggleShuffle,
     playNext,
     playPrevious,
     seek,
@@ -35,32 +37,53 @@ export function NowPlayingModal({ open, onOpenChange }: NowPlayingModalProps) {
 
   // Generate dynamic colors based on album art
   useEffect(() => {
-    if (currentSong?.cover_url && open) {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = currentSong.cover_url;
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d");
-        if (context) {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          context.drawImage(img, 0, 0);
-          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-          let r = 0, g = 0, b = 0;
-          for (let i = 0; i < data.length; i += 4) {
-            r += data[i];
-            g += data[i + 1];
-            b += data[i + 2];
+    if (!currentSong || !open) return;
+
+    const extractColor = async () => {
+      try {
+        const imgElement = document.querySelector(`img[alt="${currentSong.title || 'Album cover'}"]`) as HTMLImageElement;
+
+        if (imgElement && imgElement.complete) {
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          if (context) {
+            canvas.width = imgElement.naturalWidth || 100;
+            canvas.height = imgElement.naturalHeight || 100;
+            context.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            let r = 0, g = 0, b = 0;
+            const pixelCount = data.length / 4;
+
+            for (let i = 0; i < data.length; i += 4) {
+              r += data[i];
+              g += data[i + 1];
+              b += data[i + 2];
+            }
+
+            r = Math.floor(r / pixelCount);
+            g = Math.floor(g / pixelCount);
+            b = Math.floor(b / pixelCount);
+
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            const saturationBoost = brightness < 128 ? 1.5 : 1.2;
+
+            r = Math.min(255, Math.floor(r * saturationBoost));
+            g = Math.min(255, Math.floor(g * saturationBoost));
+            b = Math.min(255, Math.floor(b * saturationBoost));
+
+            setDominantColor(`rgb(${r}, ${g}, ${b})`);
           }
-          r = Math.floor(r / (data.length / 4));
-          g = Math.floor(g / (data.length / 4));
-          b = Math.floor(b / (data.length / 4));
-          setDominantColor(`rgb(${r}, ${g}, ${b})`);
         }
-      };
-    }
+      } catch (error) {
+        console.error('Error extracting color:', error);
+        setDominantColor('#F9C901');
+      }
+    };
+
+    const timeoutId = setTimeout(extractColor, 100);
+    return () => clearTimeout(timeoutId);
   }, [currentSong, open]);
 
   const handleLikeClick = () => {
@@ -69,13 +92,33 @@ export function NowPlayingModal({ open, onOpenChange }: NowPlayingModalProps) {
     }
   };
 
-  const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleProgressBarInteraction = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if (!progressBarRef.current || !duration) return;
-    
+
     const rect = progressBarRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const newTime = (clickX / rect.width) * duration;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clickX = clientX - rect.left;
+    const newTime = Math.max(0, Math.min((clickX / rect.width) * duration, duration));
     seek(newTime);
+  };
+
+  const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    handleProgressBarInteraction(e);
+  };
+
+  const handleProgressBarTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    handleProgressBarInteraction(e);
+  };
+
+  const handleProgressBarTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isDragging) {
+      handleProgressBarInteraction(e);
+    }
+  };
+
+  const handleProgressBarTouchEnd = () => {
+    setIsDragging(false);
   };
 
   const formatTime = (seconds: number) => {
@@ -151,10 +194,13 @@ export function NowPlayingModal({ open, onOpenChange }: NowPlayingModalProps) {
 
             {/* Progress Bar */}
             <div className="w-full mt-8 px-4">
-              <div 
+              <div
                 ref={progressBarRef}
-                className="relative h-2 bg-white/20 rounded-full cursor-pointer group"
+                className="relative h-2 bg-white/20 rounded-full cursor-pointer group touch-none"
                 onClick={handleProgressBarClick}
+                onTouchStart={handleProgressBarTouchStart}
+                onTouchMove={handleProgressBarTouchMove}
+                onTouchEnd={handleProgressBarTouchEnd}
               >
                 <div
                   className="absolute top-0 left-0 h-full bg-white rounded-full transition-all duration-200"
@@ -176,7 +222,13 @@ export function NowPlayingModal({ open, onOpenChange }: NowPlayingModalProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-white/60 hover:text-white hover:bg-white/10 w-12 h-12"
+                onClick={toggleShuffle}
+                className={cn(
+                  "w-12 h-12",
+                  isShuffle
+                    ? "text-green-400 hover:text-green-300 bg-green-500/20 hover:bg-green-500/30"
+                    : "text-white/60 hover:text-white hover:bg-white/10"
+                )}
               >
                 <Shuffle className="w-5 h-5" />
               </Button>

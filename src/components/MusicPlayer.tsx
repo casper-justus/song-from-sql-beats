@@ -25,6 +25,7 @@ const MusicPlayer = () => {
     queue,
     currentQueueIndex,
     isPlaying,
+    isShuffle,
     currentTime,
     duration,
     volume,
@@ -36,6 +37,7 @@ const MusicPlayer = () => {
     preloadProgress,
     toggleLikeSong,
     togglePlay,
+    toggleShuffle,
     playNext,
     playPrevious,
     selectSong,
@@ -192,6 +194,17 @@ const MusicPlayer = () => {
 
             {/* Controls */}
             <div className="flex items-center justify-center gap-3 sm:gap-4 mb-6">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleShuffle}
+                className={cn(
+                  "text-white/80 hover:bg-white/20 rounded-full w-10 h-10",
+                  isShuffle && "text-green-400 bg-green-500/20"
+                )}
+              >
+                <Shuffle className="h-5 w-5" />
+              </Button>
               <Button variant="ghost" size="icon" onClick={playPrevious} className="text-white/80 hover:bg-white/20 rounded-full w-12 h-12">
                 <SkipBack className="h-6 w-6" />
               </Button>
@@ -269,7 +282,7 @@ const MusicPlayer = () => {
                             {song.artist}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <DownloadButton song={song} className="w-8 h-8" />
                           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleAddToQueue(song); }} className="text-white/70 hover:text-white w-8 h-8" title="Add to queue">
                             <Plus className="h-4 w-4" />

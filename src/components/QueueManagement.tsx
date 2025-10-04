@@ -38,7 +38,7 @@ export function QueueDialog() {
 
   return (
     <Dialog open={showQueueDialog} onOpenChange={setShowQueueDialog}>
-      <DialogContent className="max-w-md sm:max-w-md w-[90vw] max-h-[85vh] bg-gray-900/80 border-gray-700 p-4 sm:p-6 overflow-hidden backdrop-blur-xl flex flex-col">
+      <DialogContent className="max-w-md sm:max-w-lg w-[95vw] sm:w-[90vw] max-h-[80vh] sm:max-h-[85vh] bg-gray-900/80 border-gray-700 p-4 sm:p-6 overflow-hidden backdrop-blur-xl flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between mb-4">
             <DialogTitle className="text-white text-xl">Queue</DialogTitle>

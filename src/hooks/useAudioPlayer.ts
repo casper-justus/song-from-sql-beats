@@ -46,9 +46,13 @@ export function useAudioPlayer(
   const play = useCallback(() => {
     const audio = refs[activePlayer].current;
     if (audio) {
+      const playbackState = loadPlaybackState();
+      if (playbackState && playbackState.songId === currentSongId && audio.currentTime === 0) {
+        audio.currentTime = playbackState.currentTime;
+      }
       audio.play().catch(e => console.error('Error playing audio:', e));
     }
-  }, [activePlayer, refs]);
+  }, [activePlayer, currentSongId, refs]);
 
   const pause = useCallback(() => {
     const audio = refs[activePlayer].current;
